@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);1591</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Mapping -->
+		<PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
+		<PackageReference Include="AutoMapper" Version="13.0.1" />
+
+		<!-- Azure services -->
+		<PackageReference Include="Azure.Identity" Version="1.7.0" />
+
+		<!-- Password hashing -->
+		<PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+
+		<!-- Validation -->
+		<PackageReference Include="FluentValidation" Version="12.1.1" />
+
+		<!-- Mediator pattern -->
+		<PackageReference Include="MediatR" Version="14.1.0" />
+		<PackageReference Include="MediatR.Extensions.FluentValidation.AspNetCore" Version="6.0.0" />
+		<PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
+
+		<!-- Swagger / OpenAPI -->
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+
+		<!-- JWT authentication -->
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Project references -->
+		<ProjectReference Include="..\ClinicBookingSystem.Application\ClinicBookingSystem.Application.csproj" />
+		<ProjectReference Include="..\ClinicBookingSystem.Infrastructure\ClinicBookingSystem.Infrastructure.csproj" />
+	</ItemGroup>
+</Project>

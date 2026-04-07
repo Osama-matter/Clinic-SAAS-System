@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">clinicflow</string>
+    <string name="title_activity_main">clinicflow</string>
+    <string name="package_name">com.clinicflow.app</string>
+    <string name="custom_url_scheme">com.clinicflow.app</string>
+</resources>

@@ -1,0 +1,88 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.swp
+*~
+
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!packages/repositories.config
+*.ncrunchproject
+
+## Secrets & config
+appsettings.Development.json
+appsettings.Production.json
+**/secrets.json
+.env
+.env.*
+
+## Test results
+TestResults/
+*.trx
+coverage/
+*.coveragexml
+
+## Rider
+.idea/
+*.sln.iml
+
+## VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Hangfire
+hangfire.sqlite
+
+## Frontend dependencies and generated files
+Front_End/**/node_modules/
+Front_End/**/build/
+Front_End/**/.cache/
+
+## Logs and local diagnostics
+*.log
+*.err
+*_err.txt
+*_error.txt
+*_errors.txt
+
+## API runtime and local uploads
+src/ClinicBookingSystem.API/api_log*.txt
+src/ClinicBookingSystem.API/build*.txt
+src/ClinicBookingSystem.API/wwwroot/uploads/
+
+## Android local/generated files
+Front_End/clinicflow/android/.idea/
+Front_End/clinicflow/android/local.properties
+Front_End/clinicflow/android/capacitor-cordova-android-plugins/
+Front_End/clinicflow/android/app/src/main/assets/
+Front_End/clinicflow/android/app/src/main/res/xml/config.xml
