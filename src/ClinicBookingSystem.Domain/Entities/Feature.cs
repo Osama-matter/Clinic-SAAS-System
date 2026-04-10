@@ -1,4 +1,4 @@
-﻿using ClinicBookingSystem.Domain.Enums;
+using ClinicBookingSystem.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +12,7 @@ namespace ClinicBookingSystem.Domain.Entities
         public Guid Id { get; set; }
 
         public string Name { get; set; }
+        public string? NameAr { get; set; }
 
         // مهم جدًا يكون Unique
         public string Code { get; set; } // مثال: "MaxPatients"

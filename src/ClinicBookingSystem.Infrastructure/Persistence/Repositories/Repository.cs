@@ -100,7 +100,8 @@ public class UnitOfWork : IUnitOfWork   // whats a  uinit of work  pattern  is  
         ClinicSubscriptions = new Repository<ClinicSubscription>(context);
         Features = new Repository<Feature>(context);
         PlanFeatures = new Repository<PlanFeature>(context);
-
+        PaymentTransactions = new Repository<PaymentTransaction>(context);
+        PendingOnboardings = new Repository<PendingOnboarding>(context);
     }
 
     public IRepository<Tenant> Tenants { get; }
@@ -128,6 +129,8 @@ public class UnitOfWork : IUnitOfWork   // whats a  uinit of work  pattern  is  
 
     public IRepository<Feature> Features { get; }
     public IRepository<PlanFeature> PlanFeatures { get; }
+    public IRepository<PaymentTransaction> PaymentTransactions { get; }
+    public IRepository<PendingOnboarding> PendingOnboardings { get; }
 
     public IRepository<Plan> Planes { get; }
 

@@ -1,6 +1,8 @@
 using ClinicBookingSystem.Application.Features.Appointments;
 using ClinicBookingSystem.Application.Features.Doctors;
+using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Domain.Enums;
+using ClinicBookingSystem.API.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +21,7 @@ public class AppointmentsController : BaseController
 
     /// <summary>Book an Appointment (authenticated user)</summary>
     [HttpPost("book")]
+    [CheckPlanLimit(SaaSFeatureCodes.AppointmentsLimit)]
     [ProducesResponseType(typeof(AppointmentDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -57,6 +60,7 @@ public class AppointmentsController : BaseController
     /// <summary>Book an appointment without login (guest)</summary>
     [AllowAnonymous]
     [HttpPost("public")]
+    [CheckPlanLimit(SaaSFeatureCodes.AppointmentsLimit)]
     [ProducesResponseType(typeof(PublicAppointmentDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

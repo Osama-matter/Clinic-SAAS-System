@@ -13,16 +13,29 @@ public class PatientHandlers :
     IRequestHandler<GetAllPatientsQuery, IEnumerable<PatientDto>>
 {
     private readonly IUnitOfWork _uow;
+    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
+    private readonly ClinicBookingSystem.Application.Interfaces.ICurrentUserService _currentUser;
 
-    public PatientHandlers(IUnitOfWork uow)
+    public PatientHandlers(
+        IUnitOfWork uow, 
+        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas,
+        ClinicBookingSystem.Application.Interfaces.ICurrentUserService currentUser)
     {
         _uow = uow;
+        _saas = saas;
+        _currentUser = currentUser;
     }
 
     public async Task<PatientDto> Handle(CreatePatientCommand request, CancellationToken cancellationToken)
     {
+        var tenantId = _currentUser.TenantId
+            ?? throw new DomainException("Tenant ID is required.");
+        var existingCount = await _uow.Patients.GetAllAsync(p => p.TenantId == tenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.PatientLimit, existingCount.Count(), cancellationToken);
+
         var patient = new Patient
         {
+            TenantId = tenantId,
             Name = request.Name,
             Phone = request.Phone,
             Gender = request.Gender,

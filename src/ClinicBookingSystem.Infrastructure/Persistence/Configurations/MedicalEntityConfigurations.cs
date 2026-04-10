@@ -14,6 +14,7 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
         builder.Property(p => p.Allergies).HasMaxLength(1000);
         builder.Property(p => p.ChronicDiseases).HasMaxLength(1000);
         builder.Property(p => p.DrugHistory).HasMaxLength(1000);
+        builder.HasIndex(p => p.TenantId);
     }
 }
 
@@ -35,6 +36,7 @@ public class VisitConfiguration : IEntityTypeConfiguration<Visit>
 
         builder.Property(v => v.Symptoms).HasMaxLength(2000);
         builder.Property(v => v.Notes).HasMaxLength(4000);
+        builder.HasIndex(v => v.TenantId);
     }
 }
 
@@ -55,6 +57,8 @@ public class VitalsConfiguration : IEntityTypeConfiguration<Vitals>
         builder.Property(v => v.Height).HasColumnType("decimal(5,2)");
         builder.Property(v => v.PO2).HasColumnType("decimal(5,2)");
         builder.Property(v => v.RBS).HasColumnType("decimal(5,2)");
+        builder.Property(v => v.BMI).HasColumnType("decimal(5,2)");
+        builder.HasIndex(v => v.TenantId);
     }
 }
 
@@ -72,6 +76,7 @@ public class ExaminationConfiguration : IEntityTypeConfiguration<Examination>
         builder.Property(e => e.GeneralExamination).HasMaxLength(2000);
         builder.Property(e => e.LocalExamination).HasMaxLength(2000);
         builder.Property(e => e.PhysicalNotes).HasMaxLength(2000);
+        builder.HasIndex(e => e.TenantId);
     }
 }
 
@@ -88,6 +93,7 @@ public class DiagnosisConfiguration : IEntityTypeConfiguration<Diagnosis>
 
         builder.Property(d => d.ICD10Code).HasMaxLength(20);
         builder.Property(d => d.Description).HasMaxLength(1000);
+        builder.HasIndex(d => d.TenantId);
     }
 }
 
@@ -116,6 +122,7 @@ public class PrescriptionConfiguration : IEntityTypeConfiguration<Prescription>
         builder.Property(p => p.Dosage).HasMaxLength(100);
         builder.Property(p => p.Instructions).HasMaxLength(500);
         builder.Property(p => p.Duration).HasMaxLength(100);
+        builder.HasIndex(p => p.TenantId);
     }
 }
 
@@ -131,6 +138,7 @@ public class LabOrderConfiguration : IEntityTypeConfiguration<LabOrder>
                .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(l => l.TestName).HasMaxLength(200);
+        builder.HasIndex(l => l.TenantId);
     }
 }
 
@@ -147,6 +155,7 @@ public class ImagingOrderConfiguration : IEntityTypeConfiguration<ImagingOrder>
 
         builder.Property(i => i.ImagingType).HasMaxLength(100);
         builder.Property(i => i.BodyPart).HasMaxLength(100);
+        builder.HasIndex(i => i.TenantId);
     }
 }
 
@@ -174,5 +183,6 @@ public class ResultConfiguration : IEntityTypeConfiguration<Result>
         builder.Property(r => r.LabResult).HasMaxLength(2000);
         builder.Property(r => r.ImagingResult).HasMaxLength(2000);
         builder.Property(r => r.OtherResult).HasMaxLength(2000);
+        builder.HasIndex(r => r.TenantId);
     }
 }

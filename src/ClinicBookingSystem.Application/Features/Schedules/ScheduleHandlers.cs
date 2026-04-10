@@ -1,6 +1,7 @@
 using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
+using ClinicBookingSystem.Application.Interfaces;
 using MediatR;
 
 namespace ClinicBookingSystem.Application.Features.Schedules;
@@ -12,16 +13,22 @@ public class ScheduleHandlers :
     IRequestHandler<GetDoctorSchedulesQuery, IEnumerable<ScheduleDto>>
 {
     private readonly IUnitOfWork _uow;
+    private readonly ICurrentUserService _currentUser;
 
-    public ScheduleHandlers(IUnitOfWork uow)
+    public ScheduleHandlers(IUnitOfWork uow, ICurrentUserService currentUser)
     {
         _uow = uow;
+        _currentUser = currentUser;
     }
 
     public async Task<ScheduleDto> Handle(CreateScheduleCommand request, CancellationToken cancellationToken)
     {
+        var tenantId = _currentUser.TenantId
+            ?? throw new DomainException("Tenant ID is required.");
+
         var schedule = new Schedule
         {
+            TenantId = tenantId,
             DoctorId = request.DoctorId,
             DayOfWeek = (System.DayOfWeek)request.DayOfWeek,
             StartTime = request.StartTime,

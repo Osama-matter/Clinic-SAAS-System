@@ -548,10 +548,10 @@ const VisitChartDetail = ({ selectedVisit, onBack }) => {
                     <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:border-slate-800 dark:text-slate-500 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                            ClinicFlow Verified Record
+                            Royal Clinic Verified Record
                         </div>
                         <div className="break-all">Digital Reference: {selectedVisit.id}</div>
-                        <div>Mattar Clinic (c) {new Date().getFullYear()}</div>
+                        <div>Royal Clinic (c) {new Date().getFullYear()}</div>
                     </div>
                 </div>
             </div>

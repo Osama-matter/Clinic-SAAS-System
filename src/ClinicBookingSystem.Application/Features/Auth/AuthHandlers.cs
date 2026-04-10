@@ -36,7 +36,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDto>
         await _uow.Users.AddAsync(user, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt);
+        return new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt, user.TenantId);
     }
 }
 
@@ -53,12 +53,34 @@ public class CreateAdminCommandHandler : IRequestHandler<CreateAdminCommand, Use
 
     public async Task<UserDto> Handle(CreateAdminCommand request, CancellationToken cancellationToken)
     {
-        if (_currentUser.Role != "Admin")
+        if (_currentUser.Role != "Admin" && _currentUser.Role != "SuperAdmin")
             throw new UnauthorizedActionException("Only administrators can create other administrator accounts.");
 
         var currentUserId = _currentUser.UserId ?? throw new UnauthorizedActionException("User not found.");
         var currentUser = await _uow.Users.GetByIdAsync(currentUserId, cancellationToken)
             ?? throw new UnauthorizedActionException("User account not found.");
+
+        Guid? targetTenantId;
+        if (_currentUser.Role == "Admin")
+        {
+            if (!currentUser.TenantId.HasValue)
+                throw new UnauthorizedActionException("Administrators can only create staff accounts for their current clinic.");
+
+            if (request.TenantId.HasValue && request.TenantId.Value != currentUser.TenantId.Value)
+                throw new UnauthorizedActionException("Administrators can only create staff accounts for their current clinic.");
+
+            targetTenantId = currentUser.TenantId;
+        }
+        else
+        {
+            targetTenantId = request.TenantId;
+        }
+
+        if (!targetTenantId.HasValue)
+            throw new DomainException("A clinic must be selected for the new administrator account.");
+
+        var targetTenant = await _uow.Tenants.GetByIdAsync(targetTenantId.Value, cancellationToken)
+            ?? throw new NotFoundException("Tenant", targetTenantId.Value);
 
         var users = await _uow.Users.GetAllAsync(
             u => u.Email == request.Email.ToLowerInvariant(),
@@ -72,13 +94,13 @@ public class CreateAdminCommandHandler : IRequestHandler<CreateAdminCommand, Use
             Email = request.Email.ToLowerInvariant(),
             PasswordHash = BC.HashPassword(request.Password, workFactor: 12),
             Role = UserRole.Admin,
-            TenantId = currentUser.TenantId
+            TenantId = targetTenant.Id
         };
 
         await _uow.Users.AddAsync(user, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt);
+        return new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt, user.TenantId);
     }
 }
 
@@ -104,6 +126,28 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokenDto>
         if (!BC.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedActionException("Invalid email or password.");
 
+        // ── Check clinic activation & subscription ────────────────────
+        if (user.TenantId.HasValue && user.Role != UserRole.User)
+        {
+            var tenant = await _uow.Tenants.GetByIdAsync(user.TenantId.Value, cancellationToken);
+            if (tenant != null && !tenant.IsActive)
+            {
+                // Check if there's a pending payment subscription
+                var subs = await _uow.ClinicSubscriptions.GetAllAsync(
+                    s => s.ClinicId == tenant.Id, cancellationToken);
+                var latestSub = subs.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+
+                if (latestSub == null || latestSub.Status == SubscriptionStatus.PendingPayment)
+                    throw new DomainException("Your clinic subscription is pending payment. Please complete the payment to activate your account.");
+                
+                if (latestSub.Status == SubscriptionStatus.Expired)
+                    throw new DomainException("Your clinic subscription has expired. Please renew your subscription.");
+
+                if (latestSub.Status == SubscriptionStatus.Inactive)
+                    throw new DomainException("Your clinic subscription has been deactivated. Please contact support.");
+            }
+        }
+
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, user.Role, user.TenantId ?? Guid.Empty);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
@@ -112,7 +156,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokenDto>
         await _uow.Users.UpdateAsync(user, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        var userDto = new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt);
+        var userDto = new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt, user.TenantId);
         return new AuthTokenDto(accessToken, refreshToken, DateTime.UtcNow.AddMinutes(15), userDto);
     }
 }
@@ -148,7 +192,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
         await _uow.Users.UpdateAsync(user, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        var userDto = new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt);
+        var userDto = new UserDto(user.Id, user.Name, user.Email, ((int)user.Role).ToString(), user.CreatedAt, user.TenantId);
         return new AuthTokenDto(accessToken, newRefreshToken, DateTime.UtcNow.AddMinutes(15), userDto);
     }
 }

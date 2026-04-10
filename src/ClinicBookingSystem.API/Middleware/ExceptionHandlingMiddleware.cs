@@ -35,7 +35,7 @@ public class ExceptionHandlingMiddleware
         {
             NotFoundException => (HttpStatusCode.NotFound, "Resource Not Found"),
             SchedulingConflictException => (HttpStatusCode.Conflict, "Scheduling Conflict"),
-            UnauthorizedActionException => (HttpStatusCode.Forbidden, "Forbidden"),
+            UnauthorizedActionException => (HttpStatusCode.Unauthorized, "Unauthorized"),
             EventFullException => (HttpStatusCode.BadRequest, "Session Full"),
             InvalidStatusTransitionException => (HttpStatusCode.BadRequest, "Invalid Status Transition"),
             DomainException => (HttpStatusCode.BadRequest, "Business Rule Violation"),

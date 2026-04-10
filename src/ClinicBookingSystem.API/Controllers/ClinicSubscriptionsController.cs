@@ -1,5 +1,7 @@
 using ClinicBookingSystem.Application.Features.ClinicSubscriptions;
+using ClinicBookingSystem.Application.Features.Payments;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClinicBookingSystem.API.Controllers;
@@ -39,5 +41,19 @@ public class ClinicSubscriptionsController : ControllerBase
     {
         if (id != command.SubscriptionId) return BadRequest("ID mismatch");
         return Ok(await _mediator.Send(command));
+    }
+
+    [HttpPost("initiate-payment")]
+    public async Task<ActionResult<string>> InitiatePayment(InitiateSubscriptionPaymentCommand command)
+    {
+        var paymentUrl = await _mediator.Send(command);
+        return Ok(new { url = paymentUrl });
+    }
+
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    [HttpGet("my")]
+    public async Task<ActionResult<MySubscriptionDto>> GetMySubscription()
+    {
+        return Ok(await _mediator.Send(new GetMySubscriptionQuery()));
     }
 }

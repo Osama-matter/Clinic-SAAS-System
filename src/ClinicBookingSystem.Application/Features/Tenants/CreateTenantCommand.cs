@@ -10,7 +10,15 @@ public record CreateTenantCommand(
     string? LogoUrl,
     string? ClinicImageUrl,
     string? Address,
-    string? PhoneNumber
+    string? PhoneNumber,
+    string? PrimaryColor,
+    string? DoctorName,
+    string? Specialty,
+    string? Description,
+    string? DoctorImageUrl,
+    string? WorkingHours,
+    string? Services,
+    bool? IsPublicPageEnabled
 ) : IRequest<TenantDto>;
 
 public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, TenantDto>
@@ -32,6 +40,14 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
             ClinicImageUrl = request.ClinicImageUrl,
             Address = request.Address,
             PhoneNumber = request.PhoneNumber,
+            PrimaryColor = request.PrimaryColor,
+            DoctorName = request.DoctorName,
+            Specialty = request.Specialty,
+            Description = request.Description,
+            DoctorImageUrl = request.DoctorImageUrl,
+            WorkingHours = request.WorkingHours,
+            Services = request.Services,
+            IsPublicPageEnabled = request.IsPublicPageEnabled ?? true,
             IsActive = true,
             SubscriptionExpiry = DateTime.UtcNow.AddYears(1) // Default 1 year subscription
         };
@@ -39,6 +55,22 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
         await _uow.Tenants.AddAsync(tenant, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return new TenantDto(tenant.Id, tenant.Name, tenant.Subdomain, tenant.LogoUrl, tenant.ClinicImageUrl, tenant.Address, tenant.PhoneNumber);
+        return new TenantDto(
+            tenant.Id,
+            tenant.Name,
+            tenant.Subdomain,
+            tenant.LogoUrl,
+            tenant.ClinicImageUrl,
+            tenant.Address,
+            tenant.PhoneNumber,
+            tenant.PrimaryColor,
+            tenant.DoctorName,
+            tenant.Specialty,
+            tenant.Description,
+            tenant.DoctorImageUrl,
+            tenant.WorkingHours,
+            tenant.Services,
+            tenant.IsPublicPageEnabled,
+            tenant.IsActive);
     }
 }

@@ -30,6 +30,7 @@ public class FeatureHandlers :
         var feature = new Feature
         {
             Name = request.Name,
+            NameAr = request.NameAr,
             Code = code,
             Type = request.Type,
             Description = request.Description
@@ -52,6 +53,7 @@ public class FeatureHandlers :
             throw new DomainException("Feature code already exists.");
 
         feature.Name = request.Name;
+        feature.NameAr = request.NameAr;
         feature.Code = code;
         feature.Type = request.Type;
         feature.Description = request.Description;
@@ -90,6 +92,7 @@ public class FeatureHandlers :
     private static FeatureDto MapToDto(Feature feature) => new(
         feature.Id,
         feature.Name,
+        feature.NameAr,
         feature.Code,
         feature.Type,
         feature.Description,

@@ -1,5 +1,6 @@
 using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.Application.Features.Patients;
+using ClinicBookingSystem.Application.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,7 @@ namespace ClinicBookingSystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "StaffOnly")]
+[Authorize(Roles = "Admin,Receptionist,Doctor")]
 [RequireActiveSubscription]
 public class PatientsController : ControllerBase
 {
@@ -33,7 +34,7 @@ public class PatientsController : ControllerBase
 
     /// <summary>Create a new patient (Staff/Admin only)</summary>
     [HttpPost]
-    [CheckPlanLimit("MaxPatients")]
+    [CheckPlanLimit(SaaSFeatureCodes.PatientLimit)]
     public async Task<ActionResult<PatientDto>> Create(CreatePatientCommand command)
     {
         return Ok(await _mediator.Send(command));

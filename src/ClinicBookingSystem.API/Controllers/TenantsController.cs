@@ -1,5 +1,6 @@
 using ClinicBookingSystem.Application.Features.Tenants;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClinicBookingSystem.API.Controllers;
@@ -43,5 +44,21 @@ public class TenantsController : ControllerBase
     {
         await _mediator.Send(new DeleteTenantCommand(id));
         return NoContent();
+    }
+
+    /// <summary>Get a clinic public profile by subdomain</summary>
+    [AllowAnonymous]
+    [HttpGet("public/{subdomain}")]
+    public async Task<ActionResult<ClinicPublicProfileDto>> GetPublicProfile(string subdomain)
+    {
+        return Ok(await _mediator.Send(new GetClinicPublicProfileQuery(subdomain)));
+    }
+
+    /// <summary>Update the current clinic public page</summary>
+    [Authorize(Roles = "Admin")]
+    [HttpPut("my-page")]
+    public async Task<ActionResult<TenantDto>> UpdateMyPage([FromBody] UpdateClinicPublicPageCommand command)
+    {
+        return Ok(await _mediator.Send(command));
     }
 }

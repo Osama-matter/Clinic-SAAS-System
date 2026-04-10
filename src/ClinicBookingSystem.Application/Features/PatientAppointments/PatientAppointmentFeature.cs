@@ -90,12 +90,18 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IEmailService _emailService;
+    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
 
-    public BookAppointmentCommandHandler(IUnitOfWork uow, ICurrentUserService currentUser, IEmailService emailService)
+    public BookAppointmentCommandHandler(
+        IUnitOfWork uow, 
+        ICurrentUserService currentUser, 
+        IEmailService emailService,
+        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas)
     {
         _uow = uow;
         _currentUser = currentUser;
         _emailService = emailService;
+        _saas = saas;
     }
 
     public async Task<AppointmentDto> Handle(BookAppointmentCommand request, CancellationToken cancellationToken)
@@ -108,6 +114,9 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
 
         if (request.SlotDateTime < DateTime.UtcNow)
             throw new DomainException("Cannot book an appointment in the past.");
+
+        var count = await _uow.Appointments.GetAllAsync(a => a.TenantId == doctor.TenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count.Count(), cancellationToken);
 
         // Check if doctor has a schedule for this day
         var schedules = await _uow.Schedules.GetAllAsync(
@@ -150,6 +159,7 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
 
         var patientAppointment = new PatientAppointment
         {
+            TenantId = doctor.TenantId,
             DoctorId = request.DoctorId,
             UserId = _currentUser.UserId!.Value,
             SlotDateTime = request.SlotDateTime,
@@ -218,11 +228,16 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
 {
     private readonly IUnitOfWork _uow;
     private readonly IEmailService _emailService;
+    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
 
-    public PublicBookAppointmentCommandHandler(IUnitOfWork uow, IEmailService emailService)
+    public PublicBookAppointmentCommandHandler(
+        IUnitOfWork uow, 
+        IEmailService emailService,
+        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas)
     {
         _uow = uow;
         _emailService = emailService;
+        _saas = saas;
     }
 
     public async Task<PublicAppointmentDto> Handle(PublicBookAppointmentCommand request, CancellationToken cancellationToken)
@@ -235,6 +250,10 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
 
         if (request.SlotDateTime < DateTime.UtcNow)
             throw new DomainException("Cannot book an appointment in the past.");
+
+        await _saas.CheckFeatureEnabledAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.OnlineBooking, cancellationToken);
+        var count = await _uow.Appointments.GetAllAsync(a => a.DoctorId == doctor.Id, cancellationToken); // Alternatively rely on Tenant check if needed inside Saas Service
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count.Count(), cancellationToken);
 
         // Check if doctor has a schedule for this day
         var schedules = await _uow.Schedules.GetAllAsync(
@@ -279,6 +298,7 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
 
         var patientAppointment = new PatientAppointment
         {
+            TenantId = doctor.TenantId,
             DoctorId = request.DoctorId,
             UserId = null, // guest — no login
             SlotDateTime = request.SlotDateTime,

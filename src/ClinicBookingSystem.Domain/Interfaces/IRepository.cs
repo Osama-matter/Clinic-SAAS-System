@@ -52,6 +52,8 @@ public interface IUnitOfWork // unit of work  pattern  to  group multiple reposi
     IRepository<Feature> Features { get; }
 
     IRepository<PlanFeature> PlanFeatures { get; }
+    IRepository<PaymentTransaction> PaymentTransactions { get; }
+    IRepository<PendingOnboarding> PendingOnboardings { get; }
 
 
 

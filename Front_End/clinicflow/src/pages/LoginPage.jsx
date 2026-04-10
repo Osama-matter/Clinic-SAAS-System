@@ -64,7 +64,7 @@ const LoginPage = () => {
               <div className="mb-4 w-14 h-14 bg-gradient-to-br from-primary to-primary-container rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Activity className="text-on-primary w-8 h-8" />
               </div>
-              <h1 className="font-headline font-black tracking-tighter text-3xl text-on-surface">Clinic<span className="text-primary">Flow</span></h1>
+              <h1 className="font-headline font-black tracking-tighter text-3xl text-on-surface">Royal<span className="text-primary">Clinic</span></h1>
             </Link>
           </div>
 
@@ -94,7 +94,7 @@ const LoginPage = () => {
                   required
                   value={form.email} 
                   onChange={handleChange}
-                  placeholder="doctor@clinicflow.com"
+                  placeholder="doctor@royalclinic.com"
                   className={`w-full bg-surface-alt border border-outline rounded-[1.25rem] ${isRtl ? 'pr-14 pl-5' : 'pl-14 pr-5'} py-4 text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all placeholder:text-slate-300 font-bold`} 
                 />
               </div>

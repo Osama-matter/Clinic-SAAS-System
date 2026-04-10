@@ -25,11 +25,16 @@ public class PlanHandlers :
         if (existing.Any())
             throw new DomainException("Plan name already exists.");
 
+        ValidateLimits(request.MaxDoctors, request.MaxPatients, request.MaxBookings);
+
         var plan = new Plan
         {
             Name = request.Name,
             Price = request.Price,
             DurationDays = request.DurationDays,
+            MaxDoctors = request.MaxDoctors,
+            MaxPatients = request.MaxPatients,
+            MaxBookings = request.MaxBookings,
             IsActive = request.IsActive
         };
 
@@ -48,9 +53,14 @@ public class PlanHandlers :
         if (existing.Any())
             throw new DomainException("Plan name already exists.");
 
+        ValidateLimits(request.MaxDoctors, request.MaxPatients, request.MaxBookings);
+
         plan.Name = request.Name;
         plan.Price = request.Price;
         plan.DurationDays = request.DurationDays;
+        plan.MaxDoctors = request.MaxDoctors;
+        plan.MaxPatients = request.MaxPatients;
+        plan.MaxBookings = request.MaxBookings;
         plan.IsActive = request.IsActive;
 
         await _uow.Planes.UpdateAsync(plan, cancellationToken);
@@ -84,7 +94,7 @@ public class PlanHandlers :
             request.IsActive.HasValue ? p => p.IsActive == request.IsActive.Value : null,
             cancellationToken);
 
-        return plans.Select(MapToDto);
+        return plans.Select(MapToDto).ToList();
     }
 
     private static PlanDto MapToDto(Plan plan) => new(
@@ -92,7 +102,23 @@ public class PlanHandlers :
         plan.Name,
         plan.Price,
         plan.DurationDays,
+        plan.MaxDoctors,
+        plan.MaxPatients,
+        plan.MaxBookings,
         plan.IsActive,
         plan.CreatedAt
     );
+
+    private static void ValidateLimits(int? maxDoctors, int? maxPatients, int? maxBookings)
+    {
+        ValidateLimit(nameof(maxDoctors), maxDoctors);
+        ValidateLimit(nameof(maxPatients), maxPatients);
+        ValidateLimit(nameof(maxBookings), maxBookings);
+    }
+
+    private static void ValidateLimit(string fieldName, int? value)
+    {
+        if (value.HasValue && value.Value < 0)
+            throw new DomainException($"{fieldName} cannot be negative.");
+    }
 }

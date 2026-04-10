@@ -22,10 +22,12 @@ import {
 } from "lucide-react";
 
 const DoctorsPage = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, user } = useAuth();
   const { t, lang, isRtl } = useLanguage();
   const [doctors, setDoctors] = useState([]);
   const [clinics, setClinics] = useState([]);
+  const [currentClinic, setCurrentClinic] = useState(null);
+  const [selectedClinicId, setSelectedClinicId] = useState("");
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -44,19 +46,61 @@ const DoctorsPage = () => {
   const [saving, setSaving] = useState(false);
 
   const isAr = lang === "ar";
+  const currentClinicId = isSuperAdmin 
+    ? (selectedClinicId || localStorage.getItem("clinicflow_tenantId") || (clinics.length > 0 ? clinics[0]?.id : ""))
+    : (user?.tenantId || user?.TenantId || localStorage.getItem("clinicflow_tenantId") || "");
+
+  // Persist selected clinic for superadmin
+  useEffect(() => {
+    if (isSuperAdmin && selectedClinicId) {
+      localStorage.setItem("clinicflow_tenantId", selectedClinicId);
+    }
+  }, [selectedClinicId, isSuperAdmin]);
 
   useEffect(() => {
     loadDoctors();
     loadClinics();
-  }, []);
+    loadCurrentClinic();
+  }, [currentClinicId]);
 
   const loadClinics = async () => {
+    if (!isSuperAdmin) {
+      setClinics([]);
+      return;
+    }
+
     try {
       const res = await clinicService.getAll();
       const data = res.data?.items || res.data || [];
-      setClinics(data);
+      const clinicList = Array.isArray(data) ? data : [];
+      setClinics(clinicList);
+      setSelectedClinicId((prev) => prev || clinicList[0]?.id || "");
     } catch (err) {
       console.error("Error loading clinics:", err);
+      setClinics([]);
+    }
+  };
+
+  const loadCurrentClinic = async () => {
+    const effectiveTenantId = isSuperAdmin
+      ? (selectedClinicId || currentClinicId)
+      : currentClinicId;
+
+    if (!effectiveTenantId) {
+      setCurrentClinic(null);
+      return;
+    }
+
+    try {
+      const res = await clinicService.getAll();
+      const data = res.data?.items || res.data || [];
+      const matchedClinic = Array.isArray(data)
+        ? data.find((clinic) => clinic.id === currentClinicId)
+        : null;
+      setCurrentClinic(matchedClinic || { id: currentClinicId, name: isAr ? "العيادة الحالية" : "Current Clinic" });
+    } catch (err) {
+      console.error("Error loading current clinic:", err);
+      setCurrentClinic({ id: currentClinicId, name: isAr ? "العيادة الحالية" : "Current Clinic" });
     }
   };
 
@@ -74,9 +118,10 @@ const DoctorsPage = () => {
       setDoctors(finalArray);
     } catch (err) {
       setDoctors([]);
-      toast.error(
-        isAr ? "فشل الاتصال بقاعدة البيانات." : "Failed to connect to the database."
-      );
+      const msg = isSuperAdmin && !currentClinicId
+        ? (isAr ? "يرجى اختيار العيادة أولاً لعرض الأطباء." : "Please select a clinic first to view doctors.")
+        : (isAr ? "فشل الاتصال بقاعدة البيانات." : "Failed to connect to the database.");
+      toast.error(msg, { id: "load-doctors-error" });
     } finally {
       setLoading(false);
     }
@@ -84,8 +129,9 @@ const DoctorsPage = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.tenantId) {
-      toast.error(isAr ? "يرجى اختيار العيادة" : "Please select a clinic");
+    const effectiveTenantId = currentClinicId || user?.tenantId || user?.TenantId;
+    if (!effectiveTenantId) {
+      toast.error(isAr ? "يرجى اختيار العيادة أولاً" : "Please select a clinic first", { id: "missing-tenant" });
       return;
     }
     setSaving(true);
@@ -96,11 +142,14 @@ const DoctorsPage = () => {
           ...form,
           id: selectedDoctor.id,
           isActive: selectedDoctor.isActive !== undefined ? selectedDoctor.isActive : true,
-          tenantId: form.tenantId || selectedDoctor.tenantId || null,
+          tenantId: effectiveTenantId || selectedDoctor.tenantId || null,
         });
         toast.success(t("doctorUpdated"), { id: tid });
       } else {
-        await doctorService.create(form);
+        await doctorService.create({
+          ...form,
+          tenantId: effectiveTenantId,
+        });
         toast.success(t("doctorAdded"), { id: tid });
       }
       setShowForm(false);
@@ -128,7 +177,15 @@ const DoctorsPage = () => {
 
   const openCreate = () => {
     setSelectedDoctor(null);
-    setForm({ name: "", email: "", password: "", specialty: "", bio: "", photo: "", tenantId: "" });
+    const defaultClinicId = isSuperAdmin
+      ? (selectedClinicId || clinics[0]?.id || "")
+      : currentClinicId;
+
+    if (isSuperAdmin && !selectedClinicId && clinics[0]?.id) {
+      setSelectedClinicId(clinics[0].id);
+    }
+
+    setForm({ name: "", email: "", password: "", specialty: "", bio: "", photo: "", tenantId: defaultClinicId });
     setShowForm(true);
   };
 
@@ -141,7 +198,7 @@ const DoctorsPage = () => {
       specialty: doc.specialty,
       bio: doc.bio || "",
       photo: doc.photo || "",
-      tenantId: doc.tenantId || "",
+      tenantId: doc.tenantId || currentClinicId || "",
     });
     setShowForm(true);
   };
@@ -262,12 +319,36 @@ const DoctorsPage = () => {
             </p>
           </div>
           {isAdmin && (
-            <button
-              onClick={openCreate}
-              className="btn-vibrant px-8 py-4 font-black text-xs uppercase tracking-[0.2em] relative z-10 whitespace-nowrap shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all rounded-2xl"
-            >
-              <Plus className="w-4 h-4" /> {t("addDoctor")}
-            </button>
+            <div className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-4 relative z-10 w-full lg:w-auto`}>
+              {isSuperAdmin && (
+                <div className="flex flex-col gap-1.5 min-w-[240px]">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
+                    {isAr ? "العيادة المستهدفة" : "Target Clinic"}
+                  </label>
+                  <select
+                    value={selectedClinicId}
+                    onChange={(e) => setSelectedClinicId(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-white border border-outline rounded-2xl shadow-sm font-bold text-sm text-on-surface outline-none focus:border-primary/50 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">{isAr ? "اختر العيادة..." : "Select Clinic..."}</option>
+                    {clinics.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.subdomain ? `(${c.subdomain})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <button
+                onClick={openCreate}
+                disabled={isSuperAdmin && !selectedClinicId}
+                className={`btn-vibrant px-8 py-4 font-black text-xs uppercase tracking-[0.2em] whitespace-nowrap shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all rounded-2xl flex items-center justify-center gap-2 ${
+                  isSuperAdmin && !selectedClinicId ? "opacity-50 cursor-not-allowed grayscale" : ""
+                }`}
+              >
+                <Plus className="w-4 h-4" /> {t("addDoctor")}
+              </button>
+            </div>
           )}
         </div>
 
@@ -354,11 +435,11 @@ const DoctorsPage = () => {
                       </span>
                     </div>
                     {/* Clinic name badge */}
-                    {doc.tenantId && clinics.length > 0 && (
+                    {doc.tenantId && currentClinic?.id === doc.tenantId && (
                       <div className="flex items-center justify-center gap-1.5 mt-2">
                         <Building2 className="w-3 h-3 text-slate-400" />
                         <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
-                          {clinics.find((c) => c.id === doc.tenantId)?.name ||
+                          {currentClinic.name ||
                             (isAr ? "عيادة" : "Clinic")}
                         </span>
                       </div>
@@ -417,30 +498,47 @@ const DoctorsPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* ── Clinic / Branch selector ── */}
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
+            <div className="space-y-4 md:col-span-2 p-5 bg-blue-50/30 rounded-[2rem] border border-blue-100/50">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
-                  <Building2 className="w-3 h-3" />
+                  <Building2 className="w-3.5 h-3.5 text-primary" />
                   {isAr ? "العيادة / الفرع" : "Clinic / Branch"}
                 </span>
+                {currentClinicId ? (
+                  <span className="text-[9px] bg-emerald-500 text-white px-2 py-0.5 rounded-md font-bold">
+                    {isAr ? "تم الربط" : "CONNECTED"}
+                  </span>
+                ) : (
+                  <span className="text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-md font-bold">
+                    {isAr ? "مطلوب" : "REQUIRED"}
+                  </span>
+                )}
               </label>
-              <select
-                className="w-full px-6 py-4 bg-slate-50 rounded-[1.5rem] border border-slate-200 focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none font-bold text-slate-700 transition-all appearance-none cursor-pointer"
-                value={form.tenantId}
-                onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
-                required
-              >
-                <option value="">
-                  {isAr
-                    ? "--- اختر العيادة التي يعمل بها الطبيب ---"
-                    : "--- Select the doctor's clinic ---"}
-                </option>
-                {clinics.map((clinic) => (
-                  <option key={clinic.id} value={clinic.id}>
-                    {clinic.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-4">
+                <div className={`flex-1 px-6 py-4 rounded-[1.5rem] border font-bold transition-all shadow-inner flex items-center gap-3 ${
+                  currentClinic?.id 
+                  ? "bg-white border-primary/20 text-on-surface ring-2 ring-primary/5" 
+                  : "bg-amber-50 border-amber-200 text-amber-600"
+                }`}>
+                  <Building2 className={`w-5 h-5 ${currentClinic?.id ? "text-primary" : "text-amber-500"}`} />
+                  <div className="flex flex-col">
+                    <span className="text-sm">
+                      {currentClinic?.id ? currentClinic.name : (isAr ? "لم يتم اختيار عيادة" : "No Clinic Selected")}
+                    </span>
+                    {currentClinic?.subdomain && (
+                      <span className="text-[10px] opacity-60 tracking-wider">@{currentClinic.subdomain}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {!currentClinicId && (
+                <div className="flex items-start gap-2 px-2 text-[10px] font-medium text-amber-600">
+                  <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  {isAr 
+                    ? "يرجى إغلاق هذه النافذة واختيار العيادة من القائمة الرئيسية أولاً." 
+                    : "Please close this window and select a clinic from the main dropdown first."}
+                </div>
+              )}
             </div>
 
             {/* ── Name ── */}
@@ -629,9 +727,9 @@ const DoctorsPage = () => {
                 </h4>
                 <form
                   onSubmit={handleScheduleSave}
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+                  className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end"
                 >
-                  <div className="sm:col-span-2 lg:col-span-1">
+                  <div className="md:col-span-3">
                     <select
                       className="w-full px-4 py-3 bg-surface border border-outline rounded-2xl text-[10px] font-black uppercase tracking-widest text-on-surface focus:ring-4 focus:ring-primary/5 outline-none transition-all appearance-none"
                       value={scheduleForm.dayOfWeek}
@@ -653,26 +751,26 @@ const DoctorsPage = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="flex gap-3 items-center">
+                  <div className="md:col-span-4 flex gap-2 items-center">
                     <input
                       type="time"
-                      className="flex-1 px-3 py-3 bg-surface border border-outline rounded-2xl text-sm font-bold text-on-surface outline-none"
+                      className="flex-1 px-3 py-3 bg-surface border border-outline rounded-2xl text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
                       value={scheduleForm.startTime}
                       onChange={(e) =>
                         setScheduleForm({ ...scheduleForm, startTime: e.target.value })
                       }
                     />
-                    <span className="text-on-surface-variant">-</span>
+                    <span className="text-on-surface-variant opacity-50">-</span>
                     <input
                       type="time"
-                      className="flex-1 px-3 py-3 bg-surface border border-outline rounded-2xl text-sm font-bold text-on-surface outline-none"
+                      className="flex-1 px-3 py-3 bg-surface border border-outline rounded-2xl text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
                       value={scheduleForm.endTime}
                       onChange={(e) =>
                         setScheduleForm({ ...scheduleForm, endTime: e.target.value })
                       }
                     />
                   </div>
-                  <div className="relative">
+                  <div className="md:col-span-3">
                     <input
                       type="number"
                       placeholder={t("durationMin")}
@@ -686,12 +784,14 @@ const DoctorsPage = () => {
                       }
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className="btn-vibrant py-3 font-black text-[10px] uppercase tracking-widest shadow-lg rounded-2xl"
-                  >
-                    {isAr ? "إضافة" : "Add"}
-                  </button>
+                  <div className="md:col-span-2">
+                    <button
+                      type="submit"
+                      className="w-full btn-vibrant py-3 font-black text-[10px] uppercase tracking-widest shadow-lg rounded-2xl"
+                    >
+                      {isAr ? "إضافة" : "Add"}
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>

@@ -1,9 +1,18 @@
 import axios from "axios";
 
 // ─── Base config ─────────────────────────────────────────────────────────────
-const defaultApiBaseUrl = "https://clinicore.runasp.net/api";
+const defaultApiBaseUrl = "https://royalclinic.runasp.net/api";
+const rawApiBaseUrl = (process.env.REACT_APP_API_URL || "").trim();
 
-export const API_BASE_URL = "https://clinicore.runasp.net/api";
+const normalizeApiBaseUrl = (value) => {
+  if (!value) return defaultApiBaseUrl;
+  if (/^https?:\/\//i.test(value)) return value.replace(/\/$/, "");
+  if (value.startsWith(":")) return `http://localhost${value}`;
+  if (/^\d/.test(value)) return `http://localhost:${value}`;
+  return value;
+};
+
+export const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
 
 
 
@@ -52,9 +61,18 @@ export const clinicService = {
   create: (data) => api.post("/Tenants", data),
   update: (id, data) => api.put(`/Tenants/${id}`, data),
   delete: (id) => api.delete(`/Tenants/${id}`),
+  getPublicProfile: (subdomain) => api.get(`/Tenants/public/${subdomain}`),
+  updateMyPage: (data) => api.put("/Tenants/my-page", data),
   setSelectedClinicId: (id) => localStorage.setItem("clinicflow_tenantId", id),
   getSelectedClinicId: () => localStorage.getItem("clinicflow_tenantId"),
   clearSelectedClinic: () => localStorage.removeItem("clinicflow_tenantId"),
+};
+
+export const clinicSubscriptionService = {
+  getMy: () => api.get("/ClinicSubscriptions/my"),
+  getByClinic: (clinicId) => api.get(`/ClinicSubscriptions/clinic/${clinicId}`),
+  updateStatus: (id, data) => api.patch(`/ClinicSubscriptions/${id}/status`, data),
+  initiatePayment: (data) => api.post("/ClinicSubscriptions/initiate-payment", data),
 };
 
 // ─── Refresh Token Logic ──────────────────────────────────────────────────────
@@ -145,7 +163,8 @@ export const authService = {
   createAdmin: (data) => api.post("/auth/create-admin", {
     name: data.fullName,
     email: data.email,
-    password: data.password
+    password: data.password,
+    tenantId: data.tenantId || null
   }),
 
   // Clinic Profile & Uploads
@@ -159,6 +178,25 @@ export const authService = {
 
   updateClinicProfile: (id, data) => api.put(`/tenants/${id}`, data),
   getClinicProfile: (id) => api.get(`/tenants/${id}`),
+
+  registerClinic: (data) =>
+    api.post("/Auth/register-clinic", data),
+};
+
+export const planService = {
+  getAll: (params) => api.get("/Plans", { params }),
+  getById: (id) => api.get(`/Plans/${id}`),
+  create: (data) => api.post("/Plans", data),
+  update: (id, data) => api.put(`/Plans/${id}`, data),
+  delete: (id) => api.delete(`/Plans/${id}`),
+};
+
+export const featureService = {
+  getAll: () => api.get("/Features"),
+  getById: (id) => api.get(`/Features/${id}`),
+  create: (data) => api.post("/Features", data),
+  update: (id, data) => api.put(`/Features/${id}`, data),
+  delete: (id) => api.delete(`/Features/${id}`),
 };
 
 

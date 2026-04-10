@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { appointmentService, clinicService, doctorService, getFileUrl } from "../services/api";
 import { toast } from "react-hot-toast";
@@ -33,7 +33,10 @@ const StepBar = ({ step }) => (
 const GuestBookingPage = () => {
   const { t, lang, isRtl } = useLanguage();
   const isAr = lang === "ar";
-  const publicHost = "https://mattarclinic.vercel.app";
+  const publicHost = window.location.origin;
+  const location = useLocation();
+  const clinicSlug = useMemo(() => new URLSearchParams(location.search).get("clinic"), [location.search]);
+  const homePath = clinicSlug ? `/clinic/${encodeURIComponent(clinicSlug)}` : "/";
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,7 @@ const GuestBookingPage = () => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [bookingResult, setBookingResult] = useState(null);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", notes: "" });
+  const isClinicLocked = Boolean(clinicSlug && selectedClinic);
 
   const qrLookupUrl = useMemo(() => {
     if (!bookingResult) return "";
@@ -90,7 +94,24 @@ const GuestBookingPage = () => {
       try {
         setLoading(true);
         const res = await clinicService.getAll();
-        setClinics(res.data || []);
+        const clinicList = res.data || [];
+        setClinics(clinicList);
+
+        if (clinicSlug) {
+          const matchedClinic = clinicList.find((clinic) => clinic.subdomain?.toLowerCase() === clinicSlug.toLowerCase());
+          if (matchedClinic) {
+            setSelectedClinic(matchedClinic);
+            clinicService.setSelectedClinicId(matchedClinic.id);
+            setStep(2);
+            const doctorPromise = doctorService.getAll().then((doctorRes) => {
+              setDoctors(doctorRes.data || []);
+              return doctorRes;
+            });
+            await doctorPromise;
+          } else {
+            toast.error(isAr ? "هذه العيادة غير موجودة" : "This clinic does not exist");
+          }
+        }
       } catch {
         toast.error(isAr ? "فشل تحميل العيادات" : "Failed to load clinics");
       } finally {
@@ -99,7 +120,7 @@ const GuestBookingPage = () => {
     };
 
     loadClinics();
-  }, [isAr]);
+  }, [clinicSlug, isAr]);
 
   const loadDoctors = async () => {
     try {
@@ -177,7 +198,7 @@ const GuestBookingPage = () => {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.14),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef4ff_100%)] px-4 py-10 dark:bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.18),_transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_100%)] sm:px-6" dir={isRtl ? "rtl" : "ltr"}>
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex items-center justify-between gap-4">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm font-black text-slate-500 transition-colors hover:text-primary dark:text-slate-300">
+          <Link to={homePath} className="inline-flex items-center gap-2 text-sm font-black text-slate-500 transition-colors hover:text-primary dark:text-slate-300">
             <ArrowLeft className={`h-4 w-4 ${isRtl ? "rotate-180" : ""}`} />
             {t("backToHome")}
           </Link>
@@ -196,7 +217,7 @@ const GuestBookingPage = () => {
           </div>
 
           <div className="px-6 py-8 sm:px-10">
-            {step === 1 && (
+            {step === 1 && !isClinicLocked && (
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900">{isAr ? "اختيار العيادة" : "Choose Clinic"}</h2>
@@ -226,13 +247,13 @@ const GuestBookingPage = () => {
                           )}
                         </div>
                         <h3 className="text-lg font-black text-slate-900 transition-colors group-hover:text-primary">{clinic.name}</h3>
-                        <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{clinic.subdomain || "General Service"}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{clinic.subdomain || "General Service"}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
             {step === 2 && (
               <div className="space-y-6">
@@ -564,11 +585,11 @@ const GuestBookingPage = () => {
               </div>
 
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Link to="/" className="rounded-2xl border border-slate-200 bg-white px-8 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                  <Link to={homePath} className="rounded-2xl border border-slate-200 bg-white px-8 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                     {t("backToHome")}
                   </Link>
                   <Link
-                    to={`/appointments/lookup?ref=${encodeURIComponent(bookingResult.bookingReference)}&phone=${encodeURIComponent(formData.phone || "")}&name=${encodeURIComponent(formData.name || "")}`}
+                    to={`/appointments/lookup?ref=${encodeURIComponent(bookingResult.bookingReference)}&phone=${encodeURIComponent(formData.phone || "")}&name=${encodeURIComponent(formData.name || "")}${clinicSlug ? `&clinic=${encodeURIComponent(clinicSlug)}` : ""}`}
                     className="rounded-2xl bg-primary px-8 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-primary/25"
                   >
                     {t("manageBookings") || (isAr ? "إدارة الحجز" : "Manage Booking")}

@@ -1,5 +1,5 @@
-using ClinicBookingSystem.Domain.Entities;
 using MediatR;
+using System.Collections.Generic;
 
 namespace ClinicBookingSystem.Application.Features.Plans;
 
@@ -8,6 +8,9 @@ public record PlanDto(
     string Name,
     decimal Price,
     int DurationDays,
+    int? MaxDoctors,
+    int? MaxPatients,
+    int? MaxBookings,
     bool IsActive,
     DateTime CreatedAt
 );
@@ -16,6 +19,9 @@ public record CreatePlanCommand(
     string Name,
     decimal Price,
     int DurationDays,
+    int? MaxDoctors,
+    int? MaxPatients,
+    int? MaxBookings,
     bool IsActive
 ) : IRequest<PlanDto>;
 
@@ -24,6 +30,9 @@ public record UpdatePlanCommand(
     string Name,
     decimal Price,
     int DurationDays,
+    int? MaxDoctors,
+    int? MaxPatients,
+    int? MaxBookings,
     bool IsActive
 ) : IRequest<PlanDto>;
 

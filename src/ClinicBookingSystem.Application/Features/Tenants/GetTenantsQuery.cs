@@ -20,6 +20,22 @@ public class GetTenantsQueryHandler : IRequestHandler<GetTenantsQuery, IEnumerab
             t => t.IsActive && !t.IsDeleted,
             cancellationToken);
 
-        return tenants.Select(t => new TenantDto(t.Id, t.Name, t.Subdomain, t.LogoUrl, t.ClinicImageUrl, t.Address, t.PhoneNumber));
+        return tenants.Select(t => new TenantDto(
+            t.Id,
+            t.Name,
+            t.Subdomain,
+            t.LogoUrl,
+            t.ClinicImageUrl,
+            t.Address,
+            t.PhoneNumber,
+            t.PrimaryColor,
+            t.DoctorName,
+            t.Specialty,
+            t.Description,
+            t.DoctorImageUrl,
+            t.WorkingHours,
+            t.Services,
+            t.IsPublicPageEnabled,
+            t.IsActive));
     }
 }

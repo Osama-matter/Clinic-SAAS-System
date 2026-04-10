@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { notificationService } from "../services/api";
 import {
@@ -12,12 +13,15 @@ import {
   Trash2,
   LayoutDashboard,
   Clock,
-  Menu
+  Menu,
+  Sun,
+  Moon
 } from "lucide-react";
 
 const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
   const { user, isAdmin, isDoctor, isReceptionist } = useAuth();
   const { lang, toggleLang, t, isRtl } = useLanguage();
+  const { toggleTheme, isDark } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef(null);
@@ -156,6 +160,19 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
         >
           <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
           <span>{lang === "en" ? "AR" : "EN"}</span>
+        </button>
+
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-white dark:bg-slate-800 border border-outline hover:border-primary/40 text-slate-600 dark:text-slate-300 hover:text-primary transition-all shadow-sm"
+          title={isDark ? (lang === "ar" ? "الوضع المضيء" : "Light Mode") : (lang === "ar" ? "الوضع الليلي" : "Dark Mode")}
+        >
+          {isDark ? (
+            <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 animate-in zoom-in duration-300" />
+          ) : (
+            <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 animate-in zoom-in duration-300" />
+          )}
         </button>
 
         {!hideUserActions && (

@@ -14,6 +14,9 @@ namespace ClinicBookingSystem.Domain.Entities
 
         public decimal Price { get; set; }
         public int DurationDays { get; set; }
+        public int? MaxDoctors { get; set; }
+        public int? MaxPatients { get; set; }
+        public int? MaxBookings { get; set; }
 
         public bool IsActive { get; set; }
 

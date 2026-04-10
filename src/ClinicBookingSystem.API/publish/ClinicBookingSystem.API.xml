@@ -1,0 +1,110 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ClinicBookingSystem.API</name>
+    </assembly>
+    <members>
+        <member name="T:ClinicBookingSystem.API.Controllers.AuthController">
+            <summary>Authentication endpoints</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AuthController.Register(ClinicBookingSystem.Application.Features.Auth.RegisterCommand,System.Threading.CancellationToken)">
+            <summary>Register a new user account</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AuthController.RegisterClinic(ClinicBookingSystem.Application.Features.Auth.OnboardNewClinicCommand,System.Threading.CancellationToken)">
+            <summary>Onboard a new clinic (Tenant + Admin + Subscription)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AuthController.Login(ClinicBookingSystem.Application.Features.Auth.LoginCommand,System.Threading.CancellationToken)">
+            <summary>Login and receive JWT tokens</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AuthController.RefreshToken(ClinicBookingSystem.Application.Features.Auth.RefreshTokenCommand,System.Threading.CancellationToken)">
+            <summary>Refresh access token</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AuthController.CreateAdmin(ClinicBookingSystem.Application.Features.Auth.CreateAdminCommand,System.Threading.CancellationToken)">
+            <summary>Create a new admin user (Admin only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AuthController.GetPatients(System.Threading.CancellationToken)">
+            <summary>Get list of all patients (Admin/Receptionist only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.DoctorsController.GetAll(System.String,System.Nullable{System.Boolean})">
+            <summary>Get all doctors (public)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.DoctorsController.GetById(System.Guid)">
+            <summary>Get doctor by ID (public)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.DoctorsController.GetAvailableSlots(System.Guid,System.DateOnly)">
+            <summary>Get available time slots for a doctor on a given date (public)</summary>
+        </member>
+        <member name="T:ClinicBookingSystem.API.Controllers.AppointmentsController">
+            <summary>PatientAppointment booking endpoints</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.Book(ClinicBookingSystem.Application.Features.Appointments.BookAppointmentCommand,System.Threading.CancellationToken)">
+            <summary>Book an Appointment (authenticated user)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.GetMine(System.Nullable{ClinicBookingSystem.Domain.Enums.AppointmentStatus},System.Threading.CancellationToken)">
+            <summary>Get my Appointments</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.UpdateStatus(System.Guid,ClinicBookingSystem.Application.Features.Appointments.UpdateAppointmentStatusCommand,System.Threading.CancellationToken)">
+            <summary>Update Appointment status</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.Cancel(System.Guid,System.Threading.CancellationToken)">
+            <summary>Cancel an Appointment</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.PublicBook(ClinicBookingSystem.Application.Features.Appointments.PublicBookAppointmentCommand,System.Threading.CancellationToken)">
+            <summary>Book an appointment without login (guest)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.PublicLookup(ClinicBookingSystem.Application.Features.Appointments.LookupAppointmentByReferenceQuery,System.Threading.CancellationToken)">
+            <summary>Lookup appointment by booking reference and phone</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.PublicSearch(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>Search public appointments by patient name or phone</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.PublicReschedule(ClinicBookingSystem.Application.Features.Appointments.PublicRescheduleAppointmentCommand,System.Threading.CancellationToken)">
+            <summary>Reschedule appointment by booking reference and phone</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.PublicCancel(ClinicBookingSystem.Application.Features.Appointments.PublicCancelAppointmentCommand,System.Threading.CancellationToken)">
+            <summary>Cancel appointment by booking reference and phone</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.GetMyDoctorSchedule(System.Nullable{System.Guid},System.Nullable{System.DateTime},System.Nullable{ClinicBookingSystem.Domain.Enums.AppointmentStatus},System.Threading.CancellationToken)">
+            <summary>Doctor views their own appointment schedule</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.AppointmentsController.AddNotes(System.Guid,ClinicBookingSystem.API.Controllers.NotesRequest,System.Threading.CancellationToken)">
+            <summary>Doctor adds notes to an appointment</summary>
+        </member>
+        <member name="T:ClinicBookingSystem.API.Controllers.NotesRequest">
+            <summary>Request body for adding notes</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.NotesRequest.#ctor(System.String)">
+            <summary>Request body for adding notes</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.PatientsController.Create(ClinicBookingSystem.Application.Features.Patients.CreatePatientCommand)">
+            <summary>Create a new patient (Staff/Admin only)</summary>
+        </member>
+        <member name="T:ClinicBookingSystem.API.Controllers.ReportsController">
+            <summary>Reports and analytics endpoints</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.ReportsController.GetAttendance(System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Threading.CancellationToken)">
+            <summary>Get attendance report summary (Admin only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.ReportsController.Export(System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime},System.Threading.CancellationToken)">
+            <summary>Export appointments report as CSV or PDF (Admin only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.TenantsController.GetAll">
+            <summary>Get all active clinics (public)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.TenantsController.Create(ClinicBookingSystem.Application.Features.Tenants.CreateTenantCommand)">
+            <summary>Create a new clinic (Admin only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.TenantsController.Update(System.Guid,ClinicBookingSystem.Application.Features.Tenants.UpdateTenantCommand)">
+            <summary>Update a clinic (Admin only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.TenantsController.Delete(System.Guid)">
+            <summary>Delete a clinic (Admin only)</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.TenantsController.GetPublicProfile(System.String)">
+            <summary>Get a clinic public profile by subdomain</summary>
+        </member>
+        <member name="M:ClinicBookingSystem.API.Controllers.TenantsController.UpdateMyPage(ClinicBookingSystem.Application.Features.Tenants.UpdateClinicPublicPageCommand)">
+            <summary>Update the current clinic public page</summary>
+        </member>
+    </members>
+</doc>

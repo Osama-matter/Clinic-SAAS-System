@@ -3,7 +3,7 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { useLanguage } from "../context/LanguageContext";
 
-const Layout = ({ children, title = "ClinicFlow", showSidebar = true }) => {
+const Layout = ({ children, title = "Royal Clinic", showSidebar = true }) => {
   const { isRtl } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   

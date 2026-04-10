@@ -21,16 +21,23 @@ public class VisitHandlers :
 {
     private readonly IUnitOfWork _uow;
     private readonly IFileService _fileService;
-    public VisitHandlers(IUnitOfWork uow, IFileService fileService)
+    private readonly ICurrentUserService _currentUser;
+
+    public VisitHandlers(IUnitOfWork uow, IFileService fileService, ICurrentUserService currentUser)
     {
         _uow = uow;
         _fileService = fileService;
+        _currentUser = currentUser;
     }
 
     public async Task<VisitSummaryDto> Handle(CreateVisitCommand request, CancellationToken cancellationToken)
     {
+        var tenantId = _currentUser.TenantId
+            ?? throw new DomainException("Tenant ID is required.");
+
         var visit = new Visit
         {
+            TenantId = tenantId,
             PatientId = request.PatientId,
             DoctorId = request.DoctorId,
             VisitType = request.VisitType,
@@ -47,8 +54,12 @@ public class VisitHandlers :
 
     public async Task<VisitDetailDto> Handle(CreateComprehensiveVisitCommand request, CancellationToken cancellationToken)
     {
+        var tenantId = _currentUser.TenantId
+            ?? throw new DomainException("Tenant ID is required.");
+
         var visit = new Visit
         {
+            TenantId = tenantId,
             PatientId = request.PatientId,
             DoctorId = request.DoctorId,
             VisitType = request.VisitType,

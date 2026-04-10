@@ -142,6 +142,8 @@ const ManageBookingPage = () => {
   const [searched, setSearched] = useState(false);
   const [exactMatch, setExactMatch] = useState(false);
   const [lastSearch, setLastSearch] = useState(emptyForm);
+  const clinicSlug = searchParams.get("clinic");
+  const homePath = clinicSlug ? `/clinic/${encodeURIComponent(clinicSlug)}` : "/";
 
   const hasAnySearchValue = useMemo(
     () => formData.name.trim() || formData.phone.trim() || formData.bookingReference.trim(),
@@ -237,7 +239,7 @@ const ManageBookingPage = () => {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link
-            to="/"
+            to={homePath}
             className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-4 py-2.5 text-sm font-black text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-primary dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-200"
           >
             <ArrowLeft className={`h-4 w-4 ${isRtl ? "rotate-180" : ""}`} />

@@ -126,7 +126,6 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("PaymentRef")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("PlanId")
@@ -149,7 +148,7 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
 
                     b.HasIndex("PlanId");
 
-                    b.ToTable("ClinicSubscriptions");
+                    b.ToTable("ClinicSubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.Diagnosis", b =>
@@ -408,6 +407,9 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameAr")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -675,6 +677,95 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                     b.ToTable("Appointments");
                 });
 
+            modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.PaymentTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("ClinicSubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("ExternalInvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ExternalInvoiceKey")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClinicSubscriptionId");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("PaymentTransactions");
+                });
+
+            modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.PendingOnboarding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AdminEmail")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("OnboardingDataJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Subdomain")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PendingOnboardings");
+                });
+
             modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.Plan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -696,6 +787,15 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("MaxBookings")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxDoctors")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxPatients")
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -904,7 +1004,8 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("ClinicImageUrl")
                         .HasColumnType("nvarchar(max)");
@@ -914,6 +1015,17 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("DoctorImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DoctorName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -921,6 +1033,11 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("IsPublicPageEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("LogoUrl")
                         .HasColumnType("nvarchar(max)");
@@ -931,10 +1048,24 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                         .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("PrimaryColor")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Services")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Specialty")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("Subdomain")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<DateTime>("SubscriptionExpiry")
                         .HasColumnType("datetime2");
@@ -942,7 +1073,15 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("WorkingHours")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Subdomain")
+                        .IsUnique()
+                        .HasFilter("[Subdomain] IS NOT NULL");
 
                     b.ToTable("Tenants");
                 });
@@ -1063,7 +1202,7 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("BMI")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("BloodPressure")
                         .HasMaxLength(20)
@@ -1283,6 +1422,21 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.PaymentTransaction", b =>
+                {
+                    b.HasOne("ClinicBookingSystem.Domain.Entities.ClinicSubscription", null)
+                        .WithMany("PaymentTransactions")
+                        .HasForeignKey("ClinicSubscriptionId");
+
+                    b.HasOne("ClinicBookingSystem.Domain.Entities.ClinicSubscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+                });
+
             modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.PlanFeature", b =>
                 {
                     b.HasOne("ClinicBookingSystem.Domain.Entities.Feature", "Feature")
@@ -1416,6 +1570,11 @@ namespace ClinicBookingSystem.Infrastructure.Migrations
                     b.Navigation("Tenant");
 
                     b.Navigation("Visit");
+                });
+
+            modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.ClinicSubscription", b =>
+                {
+                    b.Navigation("PaymentTransactions");
                 });
 
             modelBuilder.Entity("ClinicBookingSystem.Domain.Entities.Doctor", b =>

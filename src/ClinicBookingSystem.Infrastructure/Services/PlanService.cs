@@ -36,9 +36,6 @@ public class PlanService : IPlanService
 
     public async Task<bool> CheckLimitAsync(Guid tenantId, string featureCode, CancellationToken cancellationToken = default)
     {
-        var cacheKey = $"{CachePrefix}{tenantId}_limit_{featureCode}";
-        if (_cache.TryGetValue(cacheKey, out bool isWithinLimit)) return isWithinLimit;
-
         // 1. Get active subscription
         var subscriptions = await _uow.ClinicSubscriptions.GetAllAsync(
             s => s.ClinicId == tenantId && 
@@ -49,30 +46,32 @@ public class PlanService : IPlanService
         var activeSub = subscriptions.OrderByDescending(s => s.ExpiresAt).FirstOrDefault();
         if (activeSub == null) return false;
 
-        // 2. Get plan feature
-        var planFeatures = await _uow.PlanFeatures.GetAllAsync(
-            pf => pf.PlanId == activeSub.PlanId && pf.Feature.Code == featureCode,
-            cancellationToken,
-            pf => pf.Feature);
+        if (activeSub.Status == SubscriptionStatus.Trial)
+            return true;
 
-        var pf = planFeatures.FirstOrDefault();
-        if (pf == null) return false;
+        var plan = await _uow.Planes.GetByIdAsync(activeSub.PlanId, cancellationToken);
+        if (plan == null)
+            return false;
 
-        // 3. Check logic
-        if (pf.IsEnabled == false) return false;
-        if (pf.LimitValue == null) return true; // Unlimited
+        var limitValue = featureCode switch
+        {
+            SaaSFeatureCodes.DoctorLimit or "DoctorLimit" or "MaxDoctors" => plan.MaxDoctors,
+            SaaSFeatureCodes.PatientLimit or "PatientLimit" or "MaxPatients" => plan.MaxPatients,
+            SaaSFeatureCodes.AppointmentsLimit or "AppointmentsLimit" or "MaxBookings" => plan.MaxBookings,
+            _ => null
+        };
 
-        // 4. Count current usage
+        if (limitValue == null)
+            return true;
+
         int currentUsage = featureCode switch
         {
-            "MaxDoctors" => (await _uow.Doctors.GetAllAsync(d => d.TenantId == tenantId, cancellationToken)).Count(),
-            "MaxPatients" => (await _uow.Patients.GetAllAsync(p => p.TenantId == tenantId, cancellationToken)).Count(),
+            SaaSFeatureCodes.DoctorLimit or "DoctorLimit" or "MaxDoctors" => (await _uow.Doctors.GetAllAsync(d => d.TenantId == tenantId, cancellationToken)).Count(),
+            SaaSFeatureCodes.PatientLimit or "PatientLimit" or "MaxPatients" => (await _uow.Patients.GetAllAsync(p => p.TenantId == tenantId, cancellationToken)).Count(),
+            SaaSFeatureCodes.AppointmentsLimit or "AppointmentsLimit" or "MaxBookings" => (await _uow.Appointments.GetAllAsync(a => a.TenantId == tenantId, cancellationToken)).Count(),
             _ => 0
         };
 
-        isWithinLimit = currentUsage < pf.LimitValue.Value;
-        
-        _cache.Set(cacheKey, isWithinLimit, TimeSpan.FromMinutes(2));
-        return isWithinLimit;
+        return currentUsage < limitValue.Value;
     }
 }

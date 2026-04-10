@@ -7,6 +7,7 @@ namespace ClinicBookingSystem.Application.Features.Features;
 public record FeatureDto(
     Guid Id,
     string Name,
+    string? NameAr,
     string Code,
     FeatureType Type,
     string Description,
@@ -15,6 +16,7 @@ public record FeatureDto(
 
 public record CreateFeatureCommand(
     string Name,
+    string? NameAr,
     string Code,
     FeatureType Type,
     string Description
@@ -23,6 +25,7 @@ public record CreateFeatureCommand(
 public record UpdateFeatureCommand(
     Guid Id,
     string Name,
+    string? NameAr,
     string Code,
     FeatureType Type,
     string Description

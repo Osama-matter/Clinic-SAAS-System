@@ -25,9 +25,9 @@ const ProtectedRoute = ({ children, adminOnly = false, doctorOnly = false, staff
 
   if (!user) return <Navigate to="/login" replace />;
   if (superAdminOnly && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
-  if (adminOnly && !isAdmin) return <Navigate to="/dashboard" replace />;
-  if (doctorOnly && !isDoctor && !isAdmin) return <Navigate to="/dashboard" replace />;
-  if (staffOnly && !isReceptionist && !isAdmin) return <Navigate to="/dashboard" replace />;
+  if (adminOnly && !isAdmin && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
+  if (doctorOnly && !isDoctor && !isAdmin && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
+  if (staffOnly && !isReceptionist && !isAdmin && !isSuperAdmin && !isDoctor) return <Navigate to="/dashboard" replace />;
 
   return children;
 };

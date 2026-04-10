@@ -12,15 +12,21 @@ public class GetAttendanceSummaryQueryHandler : IRequestHandler<GetAttendanceSum
 {
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
 
-    public GetAttendanceSummaryQueryHandler(IUnitOfWork uow, ICurrentUserService currentUserService)
+    public GetAttendanceSummaryQueryHandler(
+        IUnitOfWork uow, 
+        ICurrentUserService currentUserService,
+        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas)
     {
         _uow = uow;
         _currentUserService = currentUserService;
+        _saas = saas;
     }
 
     public async Task<AttendanceReportSummaryDto> Handle(GetAttendanceSummaryQuery request, CancellationToken cancellationToken)
     {
+        await _saas.CheckFeatureEnabledAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.Reports, cancellationToken);
         var role = _currentUserService.Role;
         var userId = _currentUserService.UserId;
 
@@ -61,16 +67,23 @@ public class ExportReportQueryHandler : IRequestHandler<ExportReportQuery, (byte
     private readonly IReportExportService _exportService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _uow;
+    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
 
-    public ExportReportQueryHandler(IReportExportService exportService, ICurrentUserService currentUserService, IUnitOfWork uow)
+    public ExportReportQueryHandler(
+        IReportExportService exportService, 
+        ICurrentUserService currentUserService, 
+        IUnitOfWork uow,
+        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas)
     {
         _exportService = exportService;
         _currentUserService = currentUserService;
         _uow = uow;
+        _saas = saas;
     }
 
     public async Task<(byte[] Data, string ContentType, string FileName)> Handle(ExportReportQuery request, CancellationToken cancellationToken)
     {
+        await _saas.CheckFeatureEnabledAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.Reports, cancellationToken);
         var format = request.Format?.ToLower() ?? "csv";
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
 

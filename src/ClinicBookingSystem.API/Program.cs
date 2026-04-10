@@ -65,24 +65,34 @@ app.UseHangfireDashboard("/hangfire");
 // ── Startup Tasks (Migrate, Seed, Hangfire Jobs) ───────
 if (runStartupTasks)
 {
+    var sw = System.Diagnostics.Stopwatch.StartNew();
     try
     {
-        Console.WriteLine("Starting startup tasks...");
+        Log.Information("Starting startup tasks...");
         using (var scope = app.Services.CreateScope())
         {
             var services = scope.ServiceProvider;
             var db = services.GetRequiredService<ApplicationDbContext>();
             
             // Auto Migrate
-            Console.WriteLine("Applying migrations...");
-            await db.Database.MigrateAsync();
+            Log.Information("Checking migrations...");
+            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            if (pendingMigrations.Any())
+            {
+                Log.Information("Applying {Count} pending migrations...", pendingMigrations.Count());
+                await db.Database.MigrateAsync();
+            }
+            else
+            {
+                Log.Information("Database is up to date.");
+            }
             
             // Seed Data
-            Console.WriteLine("Seeding database...");
+            Log.Information("Seeding database check...");
             await ClinicBookingSystem.Infrastructure.Persistence.DbInitializer.SeedAsync(db);
             
             // Recurring Jobs
-            Console.WriteLine("Registering recurring jobs...");
+            Log.Information("Registering recurring jobs...");
             var recurringJobManager = services.GetRequiredService<IRecurringJobManager>();
             
             recurringJobManager.AddOrUpdate<ClinicBookingSystem.Infrastructure.Services.Background.ReminderJob>(
@@ -100,18 +110,19 @@ if (runStartupTasks)
                 job => job.CleanupExpiredAppointmentsAsync(),
                 "0 * * * *"); // Every hour
         }
-        Console.WriteLine("Startup tasks completed successfully.");
+        sw.Stop();
+        Log.Information("Startup tasks completed successfully in {ElapsedMs}ms.", sw.ElapsedMilliseconds);
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Critical error during startup tasks: {ex.Message}");
-        Console.WriteLine(ex.StackTrace);
+        sw.Stop();
+        Log.Error(ex, "Critical error during startup tasks after {ElapsedMs}ms.", sw.ElapsedMilliseconds);
         throw;
     }
 }
 else
 {
-    Console.WriteLine("Skipping startup tasks because RunStartupTasks is disabled for this environment.");
+    Log.Information("Skipping startup tasks because RunStartupTasks is disabled.");
 }
 
 app.Run();

@@ -11,7 +11,7 @@ namespace ClinicBookingSystem.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [RequireActiveSubscription]
-public class ReportsController : ControllerBase
+public class ReportsController : BaseController
 {
     public ReportsController(IMediator mediator) : base(mediator) { }
 
@@ -19,14 +19,12 @@ public class ReportsController : ControllerBase
     [HttpGet("attendance")]
     [ProducesResponseType(typeof(AttendanceReportSummaryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [CheckPlanLimit("Reporting")]
     public async Task<IActionResult> GetAttendance([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
         => Ok(await Mediator.Send(new GetAttendanceSummaryQuery(from, to), ct));
 
     /// <summary>Export appointments report as CSV or PDF (Admin only)</summary>
     [HttpGet("export")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [CheckPlanLimit("Reporting")]
     public async Task<IActionResult> Export([FromQuery] string format = "csv", [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, CancellationToken ct = default)
     {
         var (data, contentType, fileName) = await Mediator.Send(new ExportReportQuery(format, from, to), ct);

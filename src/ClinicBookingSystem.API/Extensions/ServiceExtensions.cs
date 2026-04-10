@@ -3,8 +3,11 @@ using ClinicBookingSystem.Domain.Interfaces;
 using ClinicBookingSystem.Infrastructure.Identity;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using ClinicBookingSystem.Infrastructure.Persistence.Repositories;
-using ClinicBookingSystem.Infrastructure.Services;
 using ClinicBookingSystem.Infrastructure.Settings;
+using ClinicBookingSystem.Infrastructure.Payments.Fawaterak;
+using ClinicBookingSystem.Infrastructure.Services;
+using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Application.Models.Payments.Fawaterak;
 using FluentValidation;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -34,6 +37,9 @@ public static class ServiceExtensions
         services.AddDbContext<ApplicationDbContext>(opt =>
             opt.UseSqlServer(config.GetConnectionString("DefaultConnection")));
         services.Configure<EmailSettings>(config.GetSection("EmailSettings"));
+        services.Configure<FawaterakOptions>(config.GetSection("Fawaterak"));
+
+        services.AddHttpClient();
 
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -43,6 +49,8 @@ public static class ServiceExtensions
         services.AddScoped<IReportExportService, ReportExportService>();
         services.AddScoped<IFileService, FileService>();
         services.AddScoped<IPlanService, PlanService>();
+        services.AddScoped<ISaaSEnforcementService, SaaSEnforcementService>();
+        services.AddScoped<IFawaterakPaymentService, FawaterakPaymentService>();
         services.AddMemoryCache();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -85,7 +93,7 @@ public static class ServiceExtensions
             opt.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "2"));
             opt.AddPolicy("UserOrAdmin", policy => policy.RequireRole("User", "Admin", "1", "2", "0"));
             opt.AddPolicy("DoctorOnly", policy => policy.RequireRole("Doctor", "4", "Admin", "2", "Receptionist", "3"));
-            opt.AddPolicy("StaffOnly", policy => policy.RequireRole("Admin", "Receptionist", "2", "3"));
+            opt.AddPolicy("StaffOnly", policy => policy.RequireRole("Admin", "Receptionist", "Doctor", "2", "3", "4"));
         });
 
         return services;

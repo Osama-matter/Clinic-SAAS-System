@@ -195,7 +195,7 @@ const parseQrContent = (rawValue) => {
 };
 
 const PatientsPage = () => {
-  const { isAdmin, isReceptionist } = useAuth();
+  const { isAdmin, isReceptionist, isDoctor } = useAuth();
   const { t, lang, isRtl } = useLanguage();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -217,7 +217,7 @@ const PatientsPage = () => {
   const scanFrameRef = useRef(null);
   const detectorRef = useRef(null);
   const handlingScanResultRef = useRef(false);
-  const isStaff = isAdmin || isReceptionist;
+  const isStaff = isAdmin || isReceptionist || isDoctor;
   const isAr = lang === "ar";
   const scannerSupported =
     typeof window !== "undefined" &&

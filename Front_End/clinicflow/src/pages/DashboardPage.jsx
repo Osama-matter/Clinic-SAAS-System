@@ -14,19 +14,20 @@ import {
   Building2
 } from "lucide-react";
 import ClinicsManagement from "../components/ClinicsManagement";
+import SubscriptionStatusCard from "../components/SubscriptionStatusCard";
 
 /* ─── Main Dashboard ─── */
 import { useLanguage } from "../context/LanguageContext";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { isAdmin, isDoctor, isReceptionist, isPatient, user } = useAuth();
+  const { isAdmin, isSuperAdmin, isDoctor, isReceptionist, isPatient, user } = useAuth();
   const { t, lang, isRtl } = useLanguage();
   const [stats, setStats] = useState({ totalBookings: 0, confirmed: 0, completed: 0, noShow: 0 });
   const [loading, setLoading] = useState(true);
 
   const isAr = lang === "ar";
-  const isStaff = isAdmin || isReceptionist;
+  const isStaff = isAdmin || isReceptionist || isDoctor;
 
   useEffect(() => {
     const load = async () => {
@@ -144,6 +145,12 @@ const DashboardPage = () => {
             </div>
 
             {/* ── Quick action ── */}
+            {isAdmin && (
+              <div className="pt-2">
+                <SubscriptionStatusCard />
+              </div>
+            )}
+
             {(isStaff || isDoctor) && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
                 <div className="card-premium relative overflow-hidden group p-5 sm:p-8 lg:p-10 flex flex-col h-full">
@@ -198,8 +205,8 @@ const DashboardPage = () => {
               </div>
             )}
 
-            {/* ── Admin Clinic Management ── */}
-            {isAdmin && (
+            {/* ── Admin Clinic Management (Super Admin ONLY) ── */}
+            {isSuperAdmin && (
               <div className="animate-fade-in pt-8 border-t border-outline/50">
                 <ClinicsManagement />
               </div>

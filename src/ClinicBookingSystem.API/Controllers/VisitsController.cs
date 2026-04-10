@@ -7,7 +7,7 @@ namespace ClinicBookingSystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize] // Let application roles naturally restrict as configured for overall route
+[Authorize(Roles = "Admin,Receptionist,Doctor")]
 public class VisitsController : ControllerBase
 {
     private readonly IMediator _mediator;

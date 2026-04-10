@@ -25,18 +25,28 @@ public static class DbInitializer
             await context.SaveChangesAsync();
         }
 
-        if (!await context.Users.AnyAsync(u => u.Email == "admin@clinic.com"))
+        var superAdmin = await context.Users.FirstOrDefaultAsync(u => u.Email == "admin@clinic.com");
+        if (superAdmin == null)
         {
-            var admin = new User
+            superAdmin = new User
             {
                 Name = "System Admin",
                 Email = "admin@clinic.com",
                 PasswordHash = BC.HashPassword("Admin123!"),
-                Role = UserRole.Admin,
+                Role = UserRole.SuperAdmin,
                 PhoneNumber = "1234567890",
-                TenantId = defaultTenant.Id
+                TenantId = null
             };
-            await context.Users.AddAsync(admin);
+            await context.Users.AddAsync(superAdmin);
+        }
+        else if (superAdmin.Role != UserRole.SuperAdmin)
+        {
+            superAdmin.Role = UserRole.SuperAdmin;
+            superAdmin.TenantId = null;
+            superAdmin.PasswordHash = BC.HashPassword("Admin123!");
+            superAdmin.Name = "System Admin";
+            superAdmin.PhoneNumber = "1234567890";
+            context.Users.Update(superAdmin);
         }
 
         if (!await context.Users.AnyAsync(u => u.Email == "staff@clinic.com"))
@@ -53,7 +63,39 @@ public static class DbInitializer
         }
 
         await context.SaveChangesAsync();
+        await SeedFeaturesAsync(context);
+        await SeedPlansAsync(context);
         await SeedDrugsAsync(context);
+    }
+
+    private static async Task SeedFeaturesAsync(ApplicationDbContext context)
+    {
+        if (await context.Features.AnyAsync())
+            return;
+
+        var features = new List<Feature>
+        {
+            new Feature { Name = "Max Doctors", NameAr = "حد الأطباء", Code = "MaxDoctors", Type = FeatureType.Limit, Description = "Maximum number of doctors allowed" },
+            new Feature { Name = "Max Patients", NameAr = "حد المرضى", Code = "MaxPatients", Type = FeatureType.Limit, Description = "Maximum number of patients allowed" },
+            new Feature { Name = "Max Bookings", NameAr = "حد الحجوزات", Code = "MaxBookings", Type = FeatureType.Limit, Description = "Maximum number of appointments allowed" },
+            new Feature { Name = "Public Profile", NameAr = "عرض العيادة للجمهور", Code = "PublicProfile", Type = FeatureType.Boolean, Description = "Enable public landing page for the clinic" }
+        };
+
+        await context.Features.AddRangeAsync(features);
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task SeedPlansAsync(ApplicationDbContext context)
+    {
+        if (await context.Plans.AnyAsync())
+            return;
+
+        var basicPlan = new Plan { Name = "Basic Plan", Price = 200, DurationDays = 30, MaxDoctors = 1, MaxPatients = 100, MaxBookings = 100, IsActive = true };
+        var standardPlan = new Plan { Name = "Standard Plan", Price = 500, DurationDays = 30, MaxDoctors = 5, MaxPatients = 500, MaxBookings = 500, IsActive = true };
+        var enterprisePlan = new Plan { Name = "Enterprise Plan", Price = 1000, DurationDays = 30, MaxDoctors = null, MaxPatients = null, MaxBookings = null, IsActive = true };
+
+        await context.Plans.AddRangeAsync(basicPlan, standardPlan, enterprisePlan);
+        await context.SaveChangesAsync();
     }
 
     public static async Task SeedDrugsAsync(ApplicationDbContext context)

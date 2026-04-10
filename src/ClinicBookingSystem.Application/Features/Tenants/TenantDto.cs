@@ -7,5 +7,14 @@ public record TenantDto(
     string? LogoUrl,
     string? ClinicImageUrl,
     string? Address,
-    string? PhoneNumber
+    string? PhoneNumber,
+    string? PrimaryColor,
+    string? DoctorName,
+    string? Specialty,
+    string? Description,
+    string? DoctorImageUrl,
+    string? WorkingHours,
+    string? Services,
+    bool IsPublicPageEnabled,
+    bool IsActive
 );

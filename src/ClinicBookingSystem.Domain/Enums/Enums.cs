@@ -1,4 +1,4 @@
-﻿namespace ClinicBookingSystem.Domain.Enums;
+namespace ClinicBookingSystem.Domain.Enums;
 
 public enum UserRole
 {
@@ -7,7 +7,8 @@ public enum UserRole
     Admin = 2,
     Receptionist = 3,
     Doctor = 4,
-    Patient = 5
+    Patient = 5,
+    SuperAdmin = 6
 }
 
 public enum SessionStatus
@@ -57,7 +58,15 @@ public enum SubscriptionStatus
     Active,
     Inactive,
     Trial,
-    Expired
+    Expired,
+    PendingPayment
+}
+public enum PaymentStatus
+{
+    Pending,
+    Paid,
+    Failed,
+    Cancelled
 }
 public enum FeatureType
 {

@@ -22,7 +22,7 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
             .Build();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? "Data Source=localhost;Database=ClinclSystem;Integrated Security=True;Encrypt=False;Trust Server Certificate=True";
+            ?? "Server=db47477.databaseasp.net; Database=db47477; User Id=db47477; Password=o#3X+6Wb5w=Q; Encrypt=False; MultipleActiveResultSets=True;";
 
         optionsBuilder.UseSqlServer(connectionString);
 
@@ -32,5 +32,6 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
     private class DesignTimeTenantProvider : ITenantProvider
     {
         public Guid? TenantId => null;
+        public ClinicBookingSystem.Domain.Enums.UserRole? Role => null;
     }
 }

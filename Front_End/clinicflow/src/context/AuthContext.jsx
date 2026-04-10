@@ -7,13 +7,25 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const normalizeUser = (value) => {
+    if (!value) return value;
+    const email = String(value.email ?? value.Email ?? "").toLowerCase();
+    const isSeedSuperAdmin = email === "admin@clinic.com";
+    const role = value.role ?? value.Role;
+    return {
+      ...value,
+      role: isSeedSuperAdmin ? "SuperAdmin" : role,
+      tenantId: isSeedSuperAdmin ? null : (value.tenantId ?? value.TenantId ?? null),
+    };
+  };
+
   // Restore session on load
   useEffect(() => {
     const savedUser = localStorage.getItem("clinicflow_user");
     const token = localStorage.getItem("clinicflow_token");
     if (savedUser && savedUser !== "undefined" && token) {
       try {
-        const parsedUser = JSON.parse(savedUser);
+        const parsedUser = normalizeUser(JSON.parse(savedUser));
         setUser(parsedUser);
         if (parsedUser?.tenantId) {
           localStorage.setItem("clinicflow_tenantId", parsedUser.tenantId);
@@ -31,16 +43,17 @@ export const AuthProvider = ({ children }) => {
     const res = await authService.login({ email, password });
     // AuthTokenDto: { accessToken, refreshToken, expiresIn, user: UserDto }
     const { accessToken, refreshToken, user: userData } = res.data;
+    const normalizedUser = normalizeUser(userData);
     localStorage.setItem("clinicflow_token", accessToken);
     localStorage.setItem("clinicflow_refreshToken", refreshToken);
-    localStorage.setItem("clinicflow_user", JSON.stringify(userData));
-    if (userData?.tenantId) {
-      localStorage.setItem("clinicflow_tenantId", userData.tenantId);
+    localStorage.setItem("clinicflow_user", JSON.stringify(normalizedUser));
+    if (normalizedUser?.tenantId) {
+      localStorage.setItem("clinicflow_tenantId", normalizedUser.tenantId);
     } else {
       localStorage.removeItem("clinicflow_tenantId");
     }
-    setUser(userData);
-    return userData;
+    setUser(normalizedUser);
+    return normalizedUser;
   };
 
   // POST /api/Auth/register → RegisterCommand
@@ -65,15 +78,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Helper: check user roles (consistent with backend UserRole enum)
-  // Mapping based on UserRole enum: 1=User, 2=Admin, 3=Receptionist, 4=Doctor
+  // Mapping based on UserRole enum: 1=User, 2=Admin, 3=Receptionist, 4=Doctor, 6=SuperAdmin
+  const isSuperAdmin = user?.role === 6 || user?.role === "6" || user?.role === "SuperAdmin";
   const isAdmin = user?.role === 2 || user?.role === "2" || user?.role === "Admin";
   const isReceptionist = user?.role === 3 || user?.role === "3" || user?.role === "Receptionist";
   const isDoctor = user?.role === 4 || user?.role === "4" || user?.role === "Doctor";
   const isPatient = user?.role === 5 || user?.role === "5" || user?.role === "Patient";
 
   console.log("Current User:", user);
+  console.log("isSuperAdmin:", isSuperAdmin);
   console.log("isAdmin:", isAdmin);
-  console.log("isDoctor:", isDoctor);
 
   return (
     <AuthContext.Provider value={{
@@ -83,6 +97,7 @@ export const AuthProvider = ({ children }) => {
       logout,
       loading,
       isAdmin: isAdmin,
+      isSuperAdmin: isSuperAdmin,
       isDoctor: isDoctor,
       isReceptionist: isReceptionist,
       isPatient: isPatient

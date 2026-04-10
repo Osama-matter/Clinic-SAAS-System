@@ -1,5 +1,6 @@
 using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Domain.Entities;
+using ClinicBookingSystem.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
@@ -16,78 +17,61 @@ public class ApplicationDbContext : DbContext
     }
 
     public Guid? CurrentTenantId => _tenantProvider.TenantId;
+    public UserRole? CurrentUserRole => _tenantProvider.Role;
 
-    public DbSet<Tenant> Tenants => Set<Tenant>();
-    public DbSet<User> Users => Set<User>();
-    public DbSet<PatientAppointment> Appointments => Set<PatientAppointment>();
-    public DbSet<Doctor> Doctors => Set<Doctor>();
-    public DbSet<Schedule> Schedules => Set<Schedule>();
-    public DbSet<BlockedSlot> BlockedSlots => Set<BlockedSlot>();
-    public DbSet<Notification> Notifications => Set<Notification>();
-    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<Tenant> Tenants { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<Doctor> Doctors { get; set; }
+    public DbSet<Patient> Patients { get; set; }
+    public DbSet<PatientAppointment> Appointments { get; set; }
+    public DbSet<Schedule> Schedules { get; set; }
+    public DbSet<BlockedSlot> BlockedSlots { get; set; }
+    public DbSet<Visit> Visits { get; set; }
+    public DbSet<Drug> Drugs { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<Plan> Plans { get; set; }
+    public DbSet<Feature> Features { get; set; }
+    public DbSet<PlanFeature> PlanFeature { get; set; }
+    public DbSet<ClinicSubscription> ClinicSubscriptions { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<PendingOnboarding> PendingOnboardings { get; set; }
+    public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
 
-    // New Medical Entities
-    public DbSet<Patient> Patients => Set<Patient>();
-    public DbSet<Visit> Visits => Set<Visit>();
-    public DbSet<Vitals> Vitals => Set<Vitals>();
-    public DbSet<Examination> Examinations => Set<Examination>();
-    public DbSet<Diagnosis> Diagnoses => Set<Diagnosis>();
-    public DbSet<Drug> Drugs => Set<Drug>();
-    public DbSet<Prescription> Prescriptions => Set<Prescription>();
-    public DbSet<LabOrder> LabOrders => Set<LabOrder>();
-    public DbSet<ImagingOrder> ImagingOrders => Set<ImagingOrder>();
-    public DbSet<Result> Results => Set<Result>();
-
-
-    public DbSet<ClinicSubscription> ClinicSubscriptions => Set<ClinicSubscription>();
-
-    public DbSet<Plan> Plans => Set<Plan>();
-
-    public DbSet<Feature> Features => Set<Feature>();
-
-    public DbSet<PlanFeature> PlanFeature => Set<PlanFeature>();
-
-
-
+    // Medical details
+    public DbSet<Vitals> Vitals { get; set; }
+    public DbSet<Examination> Examinations { get; set; }
+    public DbSet<Diagnosis> Diagnoses { get; set; }
+    public DbSet<Prescription> Prescriptions { get; set; }
+    public DbSet<LabOrder> LabOrders { get; set; }
+    public DbSet<ImagingOrder> ImagingOrders { get; set; }
+    public DbSet<Result> Results { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
-        // Global Query Filters for Multi-Tenancy + Soft Delete
-        // NOTE: User entity is excluded — login must find users by email regardless of tenant
-        // NOTE: When CurrentTenantId is null (guest/unauthenticated), no tenant filter is applied
-        //       so public endpoints (e.g. GET /Doctors) return all records.
-        // NOTE: This replaces the individual HasQueryFilter(!IsDeleted) from EntityConfigurations
-        //       for ITenantEntity types. The combined filter is: !IsDeleted && (TenantId == null || TenantId == CurrentTenantId)
+        var applyTenantFilterMethod = GetType()
+            .GetMethod(nameof(ApplyTenantFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(ITenantEntity).IsAssignableFrom(entityType.ClrType)
+                && typeof(ISoftDelete).IsAssignableFrom(entityType.ClrType)
                 && entityType.ClrType != typeof(User))
             {
-                var parameter = Expression.Parameter(entityType.ClrType, "e");
-
-                // !e.IsDeleted
-                var isDeletedProp = Expression.Property(parameter, nameof(BaseEntity.IsDeleted));
-                var notDeleted = Expression.Not(isDeletedProp);
-
-                // CurrentTenantId == null || e.TenantId == CurrentTenantId
-                var currentTenantIdExpr = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
-                var nullGuid = Expression.Constant(null, typeof(Guid?));
-                var isNullCheck = Expression.Equal(currentTenantIdExpr, nullGuid);
-                var tenantMatch = Expression.Equal(
-                    Expression.Property(parameter, nameof(ITenantEntity.TenantId)),
-                    currentTenantIdExpr
-                );
-                var tenantFilter = Expression.OrElse(isNullCheck, tenantMatch);
-
-                // Combine: !IsDeleted && (TenantId == null || TenantId == CurrentTenantId)
-                var body = Expression.AndAlso(notDeleted, tenantFilter);
-                var filter = Expression.Lambda(body, parameter);
-                entityType.SetQueryFilter(filter);
+                var method = applyTenantFilterMethod!.MakeGenericMethod(entityType.ClrType);
+                method.Invoke(this, new object[] { modelBuilder });
             }
         }
+    }
+
+    private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ITenantEntity, ISoftDelete
+    {
+        modelBuilder.Entity<TEntity>().HasQueryFilter(e => 
+            !e.IsDeleted && 
+            (CurrentUserRole == UserRole.SuperAdmin || (CurrentTenantId != null && e.TenantId == CurrentTenantId)));
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

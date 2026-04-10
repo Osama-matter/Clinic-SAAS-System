@@ -29,6 +29,16 @@ public class AuthController : BaseController
         return CreatedAtAction(nameof(Register), new { id = result.Id }, result);
     }
 
+    /// <summary>Onboard a new clinic (Tenant + Admin + Subscription)</summary>
+    [HttpPost("register-clinic")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RegisterClinic([FromBody] OnboardNewClinicCommand command, CancellationToken ct)
+    {
+        var paymentUrl = await Mediator.Send(command, ct);
+        return Ok(new { url = paymentUrl });
+    }
+
     /// <summary>Login and receive JWT tokens</summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthTokenDto), StatusCodes.Status200OK)]

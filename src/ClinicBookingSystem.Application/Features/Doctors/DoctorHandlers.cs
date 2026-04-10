@@ -14,18 +14,26 @@ public class DoctorHandlers :
 {
     private readonly IUnitOfWork _uow;
     private readonly ClinicBookingSystem.Application.Interfaces.ICurrentUserService _currentUser;
+    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
 
     public DoctorHandlers(
         IUnitOfWork uow,
-        ClinicBookingSystem.Application.Interfaces.ICurrentUserService currentUser)
+        ClinicBookingSystem.Application.Interfaces.ICurrentUserService currentUser,
+        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas)
     {
         _uow = uow;
         _currentUser = currentUser;
+        _saas = saas;
     }
 
     public async Task<DoctorDto> Handle(CreateDoctorCommand request, CancellationToken cancellationToken)
     {
-        var effectiveTenantId = request.TenantId ?? _currentUser.TenantId;
+        var effectiveTenantId = request.TenantId ?? _currentUser.TenantId
+            ?? throw new DomainException("Tenant ID is required.");
+
+        // Verify limit
+        var existingDoctors = await _uow.Doctors.GetAllAsync(d => d.TenantId == effectiveTenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.DoctorLimit, existingDoctors.Count(), cancellationToken);
 
         // First check if email already exists
         var existingUser = await _uow.Users.GetAllAsync(u => u.Email == request.Email, cancellationToken);
@@ -67,21 +75,22 @@ public class DoctorHandlers :
         var doctor = await _uow.Doctors.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Doctor), request.Id);
 
-        if (_currentUser.Role != "Admin" && _currentUser.Role != "2")
-            throw new UnauthorizedActionException("Only admins can update doctors.");
+        // Allow both SuperAdmin (6) and Clinic Admin (2)
+        var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
+        var isClinicAdmin = (_currentUser.Role == "2" || _currentUser.Role == "Admin") && _currentUser.TenantId == doctor.TenantId;
+
+        if (!isSuperAdmin && !isClinicAdmin)
+            throw new UnauthorizedActionException("You don't have permission to update this doctor.");
 
         doctor.Name = request.Name;
         doctor.Specialty = request.Specialty;
         doctor.Bio = request.Bio;
         
-        // Only update photo if a new one is provided in the request
         if (!string.IsNullOrEmpty(request.Photo))
-        {
             doctor.Photo = request.Photo;
-        }
         
         doctor.IsActive = request.IsActive;
-        if (request.TenantId.HasValue)
+        if (request.TenantId.HasValue && isSuperAdmin) // Only SuperAdmin can change the tenant of a doctor
         {
             doctor.TenantId = request.TenantId.Value;
         }
@@ -97,8 +106,11 @@ public class DoctorHandlers :
         var doctor = await _uow.Doctors.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Doctor), request.Id);
 
-        if (_currentUser.Role != "Admin" && _currentUser.Role != "2")
-            throw new UnauthorizedActionException("Only admins can delete doctors.");
+        var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
+        var isClinicAdmin = (_currentUser.Role == "2" || _currentUser.Role == "Admin") && _currentUser.TenantId == doctor.TenantId;
+
+        if (!isSuperAdmin && !isClinicAdmin)
+            throw new UnauthorizedActionException("You don't have permission to delete this doctor.");
 
         // Delete associated user if exists
         var user = await _uow.Users.GetByIdAsync(doctor.UserId, cancellationToken);
@@ -123,8 +135,13 @@ public class DoctorHandlers :
 
     public async Task<IEnumerable<DoctorDto>> Handle(GetDoctorsQuery request, CancellationToken cancellationToken)
     {
-        // Use IUnitOfWork to get all doctors, ignoring filters for debug
-        var doctors = await _uow.Doctors.GetAllAsync(d => true, cancellationToken);
+        var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
+        
+        // Final fallback security: filter by tenant unless SuperAdmin
+        var doctors = await _uow.Doctors.GetAllAsync(d => 
+            isSuperAdmin || d.TenantId == _currentUser.TenantId, 
+            cancellationToken);
+
         return doctors.Select(MapToDto);
     }
 

@@ -1,5 +1,6 @@
 using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.Application.Features.Doctors;
+using ClinicBookingSystem.Application.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +44,7 @@ public class DoctorsController : ControllerBase
 
     [Authorize(Policy = "AdminOnly")]
     [HttpPost]
-    [CheckPlanLimit("MaxDoctors")]
+    [CheckPlanLimit(SaaSFeatureCodes.DoctorLimit)]
     public async Task<ActionResult<DoctorDto>> Create(CreateDoctorCommand command)
     {
         return Ok(await _mediator.Send(command));

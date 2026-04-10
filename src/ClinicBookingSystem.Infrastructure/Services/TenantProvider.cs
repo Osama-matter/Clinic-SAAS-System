@@ -33,4 +33,18 @@ public class TenantProvider : ITenantProvider
             return null;
         }
     }
+
+    public ClinicBookingSystem.Domain.Enums.UserRole? Role
+    {
+        get
+        {
+            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value
+                         ?? _httpContextAccessor.HttpContext?.User?.FindFirst("role")?.Value;
+
+            if (!string.IsNullOrEmpty(roleClaim) && Enum.TryParse<ClinicBookingSystem.Domain.Enums.UserRole>(roleClaim, out var role))
+                return role;
+
+            return null;
+        }
+    }
 }
