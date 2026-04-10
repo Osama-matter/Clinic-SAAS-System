@@ -20,6 +20,8 @@ import GuestBookingPage from "./pages/GuestBookingPage";
 import ManageBookingPage from "./pages/ManageBookingPage";
 import DoctorSchedulePage from "./pages/DoctorSchedulePage";
 import MedicalRecordPage from "./pages/medical-record/MedicalRecordPage";
+import RegisterClinicPage from "./pages/RegisterClinicPage";
+import SaaSManagementPage from "./pages/SaaSManagementPage";
 
 
 const App = () => (
@@ -31,6 +33,7 @@ const App = () => (
           {/* ── Public ─────────────────────────────────────── */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register-clinic" element={<RegisterClinicPage />} />
           <Route path="/book-guest" element={<GuestBookingPage />} />
           <Route path="/appointments/lookup" element={<ManageBookingPage />} />
           <Route path="/manage-booking" element={<Navigate to="/appointments/lookup" replace />} />
@@ -60,6 +63,12 @@ const App = () => (
 
           <Route path="/settings"
             element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+
+          <Route path="/saas-management"
+            element={<ProtectedRoute superAdminOnly><SaaSManagementPage /></ProtectedRoute>} />
+
+          <Route path="/saas-features"
+            element={<ProtectedRoute superAdminOnly><SaaSManagementPage initialTab="features" /></ProtectedRoute>} />
 
           <Route path="/consultations" element={<Navigate to="/doctor/schedule" replace />} />
           <Route path="*" element={<NotFoundPage />} />

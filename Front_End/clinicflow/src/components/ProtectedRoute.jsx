@@ -5,8 +5,9 @@ import { useAuth } from "../context/AuthContext";
 // adminOnly = true → only Admin role can access
 // doctorOnly = true → only Doctor or Admin role can access
 // staffOnly = true → only Receptionist or Admin role can access
-const ProtectedRoute = ({ children, adminOnly = false, doctorOnly = false, staffOnly = false }) => {
-  const { user, loading, isAdmin, isDoctor, isReceptionist } = useAuth();
+// superAdminOnly = true → only Admin with no tenantId (platform owner) can access
+const ProtectedRoute = ({ children, adminOnly = false, doctorOnly = false, staffOnly = false, superAdminOnly = false }) => {
+  const { user, loading, isAdmin, isDoctor, isReceptionist, isSuperAdmin } = useAuth();
 
   if (loading)
     return (
@@ -23,6 +24,7 @@ const ProtectedRoute = ({ children, adminOnly = false, doctorOnly = false, staff
     );
 
   if (!user) return <Navigate to="/login" replace />;
+  if (superAdminOnly && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
   if (adminOnly && !isAdmin) return <Navigate to="/dashboard" replace />;
   if (doctorOnly && !isDoctor && !isAdmin) return <Navigate to="/dashboard" replace />;
   if (staffOnly && !isReceptionist && !isAdmin) return <Navigate to="/dashboard" replace />;
