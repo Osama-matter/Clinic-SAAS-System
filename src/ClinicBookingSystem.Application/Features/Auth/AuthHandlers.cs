@@ -17,10 +17,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDto>
     public async Task<UserDto> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
         // 1. Check for duplicate email
-        var users = await _uow.Users.GetAllAsync(
-            u => u.Email == request.Email.ToLowerInvariant(),
-            cancellationToken);
-        if (users.Any())
+        if (await _uow.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant(), cancellationToken))
             throw new DomainException("A user with this email already exists.");
 
         // 2. Create patient user — always Patient role, never auto Admin
@@ -53,28 +50,15 @@ public class CreateAdminCommandHandler : IRequestHandler<CreateAdminCommand, Use
 
     public async Task<UserDto> Handle(CreateAdminCommand request, CancellationToken cancellationToken)
     {
-        if (_currentUser.Role != "Admin" && _currentUser.Role != "SuperAdmin")
-            throw new UnauthorizedActionException("Only administrators can create other administrator accounts.");
+        var isSuperAdmin = _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6";
+        if (!isSuperAdmin)
+            throw new UnauthorizedActionException("Only SuperAdmin can create administrator accounts.");
 
         var currentUserId = _currentUser.UserId ?? throw new UnauthorizedActionException("User not found.");
         var currentUser = await _uow.Users.GetByIdAsync(currentUserId, cancellationToken)
             ?? throw new UnauthorizedActionException("User account not found.");
 
-        Guid? targetTenantId;
-        if (_currentUser.Role == "Admin")
-        {
-            if (!currentUser.TenantId.HasValue)
-                throw new UnauthorizedActionException("Administrators can only create staff accounts for their current clinic.");
-
-            if (request.TenantId.HasValue && request.TenantId.Value != currentUser.TenantId.Value)
-                throw new UnauthorizedActionException("Administrators can only create staff accounts for their current clinic.");
-
-            targetTenantId = currentUser.TenantId;
-        }
-        else
-        {
-            targetTenantId = request.TenantId;
-        }
+        var targetTenantId = request.TenantId;
 
         if (!targetTenantId.HasValue)
             throw new DomainException("A clinic must be selected for the new administrator account.");
@@ -82,10 +66,7 @@ public class CreateAdminCommandHandler : IRequestHandler<CreateAdminCommand, Use
         var targetTenant = await _uow.Tenants.GetByIdAsync(targetTenantId.Value, cancellationToken)
             ?? throw new NotFoundException("Tenant", targetTenantId.Value);
 
-        var users = await _uow.Users.GetAllAsync(
-            u => u.Email == request.Email.ToLowerInvariant(),
-            cancellationToken);
-        if (users.Any())
+        if (await _uow.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant(), cancellationToken))
             throw new DomainException("A user with this email already exists.");
 
         var user = new User
@@ -117,10 +98,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokenDto>
 
     public async Task<AuthTokenDto> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        var users = await _uow.Users.GetAllAsync(
-            u => u.Email == request.Email.ToLowerInvariant(),
-            cancellationToken);
-        var user = users.FirstOrDefault()
+        var user = await _uow.Users.FirstOrDefaultAsync(u => u.Email == request.Email.ToLowerInvariant(), cancellationToken)
             ?? throw new UnauthorizedActionException("Invalid email or password.");
 
         if (!BC.Verify(request.Password, user.PasswordHash))
@@ -175,7 +153,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
     public async Task<AuthTokenDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
         var users = await _uow.Users.GetAllAsync(
-            u => u.RefreshToken != null,
+            u => u.RefreshToken != null && u.RefreshTokenExpiry > DateTime.UtcNow,
             cancellationToken);
         var user = users.FirstOrDefault(u => BC.Verify(request.RefreshToken, u.RefreshToken))
             ?? throw new UnauthorizedActionException("Invalid refresh token.");

@@ -1,3 +1,4 @@
+using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ namespace ClinicBookingSystem.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
+[RequireActiveSubscription]
 public class DrugsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

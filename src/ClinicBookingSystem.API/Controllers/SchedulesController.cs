@@ -1,3 +1,4 @@
+using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.Application.Features.Schedules;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -7,6 +8,7 @@ namespace ClinicBookingSystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireActiveSubscription]
 public class SchedulesController : ControllerBase
 {
     private readonly IMediator _mediator;

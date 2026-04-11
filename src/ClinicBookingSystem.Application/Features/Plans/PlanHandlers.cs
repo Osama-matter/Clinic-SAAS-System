@@ -21,8 +21,8 @@ public class PlanHandlers :
 
     public async Task<PlanDto> Handle(CreatePlanCommand request, CancellationToken cancellationToken)
     {
-        var existing = await _uow.Planes.GetAllAsync(p => p.Name == request.Name, cancellationToken);
-        if (existing.Any())
+        var existing = await _uow.Planes.AnyAsync(p => p.Name == request.Name, cancellationToken);
+        if (existing)
             throw new DomainException("Plan name already exists.");
 
         ValidateLimits(request.MaxDoctors, request.MaxPatients, request.MaxBookings);
@@ -49,8 +49,8 @@ public class PlanHandlers :
         var plan = await _uow.Planes.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Plan), request.Id);
 
-        var existing = await _uow.Planes.GetAllAsync(p => p.Name == request.Name && p.Id != request.Id, cancellationToken);
-        if (existing.Any())
+        var existing = await _uow.Planes.AnyAsync(p => p.Name == request.Name && p.Id != request.Id, cancellationToken);
+        if (existing)
             throw new DomainException("Plan name already exists.");
 
         ValidateLimits(request.MaxDoctors, request.MaxPatients, request.MaxBookings);

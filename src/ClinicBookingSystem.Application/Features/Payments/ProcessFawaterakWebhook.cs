@@ -51,9 +51,8 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
         }
 
         // 3. Find Transaction (Existing/Renewal)
-        var transaction = (await _uow.PaymentTransactions.GetAllAsync(
-            t => t.ExternalInvoiceId == webHook.InvoiceId, cancellationToken))
-            .FirstOrDefault();
+        var transaction = await _uow.PaymentTransactions.FirstOrDefaultAsync(
+            t => t.ExternalInvoiceId == webHook.InvoiceId, cancellationToken);
 
         if (transaction != null)
         {

@@ -1,3 +1,4 @@
+using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.Application.Features.Notifications;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ namespace ClinicBookingSystem.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[RequireActiveSubscription]
 public class NotificationsController : BaseController
 {
     public NotificationsController(IMediator mediator) : base(mediator) { }

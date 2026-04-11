@@ -40,7 +40,7 @@ public class TokenService : ITokenService
             issuer: _config["Jwt:Issuer"],
             audience: _config["Jwt:Audience"],
             claims: claimsList,
-            expires: DateTime.UtcNow.AddMinutes(15),
+            expires: DateTime.UtcNow.AddDays(7),
             signingCredentials: creds
         );
 

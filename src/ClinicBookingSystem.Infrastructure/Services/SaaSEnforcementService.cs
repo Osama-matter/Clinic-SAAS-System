@@ -39,14 +39,18 @@ public class SaaSEnforcementService : ISaaSEnforcementService
         if (tenantId == null)
             return null;
 
-        if (_currentUserService.Role == "Admin" || _currentUserService.Role == "2")
+        if (_currentUserService.Role == "SuperAdmin" || _currentUserService.Role == "6")
             return null;
 
         var activeSubscriptions = await _uow.ClinicSubscriptions.GetAllAsync(
-            s => s.ClinicId == tenantId && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial),
+            s => s.ClinicId == tenantId &&
+                 (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial) &&
+                 s.ExpiresAt > DateTime.UtcNow,
             cancellationToken);
 
-        var subscription = activeSubscriptions.FirstOrDefault();
+        var subscription = activeSubscriptions
+            .OrderByDescending(s => s.ExpiresAt)
+            .FirstOrDefault();
         if (subscription == null)
             throw new DomainException("Clinic does not have an active subscription plan.");
 

@@ -40,20 +40,15 @@ public class OnboardNewClinicCommandHandler : IRequestHandler<OnboardNewClinicCo
     public async Task<string> Handle(OnboardNewClinicCommand request, CancellationToken cancellationToken)
     {
         // 1. Validation — ensure no ACTIVE clinic/user exists
-        var existingTenants = await _uow.Tenants.GetAllAsync(t => t.Subdomain == request.Subdomain && t.IsActive, cancellationToken);
-        if (existingTenants.Any())
+        if (await _uow.Tenants.AnyAsync(t => t.Subdomain == request.Subdomain && t.IsActive, cancellationToken))
             throw new DomainException("This subdomain is already taken.");
 
-        var existingUser = await _uow.Users.GetAllAsync(u => u.Email == request.AdminEmail.ToLowerInvariant(), cancellationToken);
-        if (existingUser.Any())
+        var existingUser = await _uow.Users.FirstOrDefaultAsync(u => u.Email == request.AdminEmail.ToLowerInvariant(), cancellationToken);
+        if (existingUser != null && existingUser.TenantId.HasValue)
         {
-            var eu = existingUser.First();
-            if (eu.TenantId.HasValue)
-            {
-                var userTenant = await _uow.Tenants.GetByIdAsync(eu.TenantId.Value, cancellationToken);
-                if (userTenant != null && userTenant.IsActive)
-                    throw new DomainException("A user with this email already exists.");
-            }
+            var userTenant = await _uow.Tenants.GetByIdAsync(existingUser.TenantId.Value, cancellationToken);
+            if (userTenant != null && userTenant.IsActive)
+                throw new DomainException("A user with this email already exists.");
         }
 
         var plan = await _uow.Planes.GetByIdAsync(request.PlanId, cancellationToken)

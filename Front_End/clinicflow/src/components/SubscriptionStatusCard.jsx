@@ -148,7 +148,18 @@ const SubscriptionStatusCard = () => {
     }
   };
 
-  const meta = statusMeta[subscription?.status] || statusMeta.Inactive;
+  const getStatusString = (statusValue) => {
+    const map = {
+      0: "Active",
+      1: "Inactive",
+      2: "Trial",
+      3: "Expired",
+      4: "PendingPayment"
+    };
+    return typeof statusValue === "number" ? map[statusValue] : statusValue;
+  };
+
+  const meta = statusMeta[getStatusString(subscription?.status)] || statusMeta.Inactive;
   const expiringSoon = subscription?.isExpiringSoon || false;
 
   if (loading) {
@@ -241,33 +252,48 @@ const SubscriptionStatusCard = () => {
 
           <div className="rounded-[1.75rem] border border-outline bg-surface p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400 mb-3">
-              {isAr ? "الحدود" : "Plan limits"}
+              {isAr ? "الاستخدام" : "Current Usage"}
             </p>
             <div className="space-y-2 max-h-[170px] overflow-auto pr-1">
-              {plan ? (
-                [
-                  { label: isAr ? "الدكاترة" : "Doctors", value: plan.maxDoctors, icon: <Users className="w-4 h-4" /> },
-                  { label: isAr ? "المرضى" : "Patients", value: plan.maxPatients, icon: <UserRound className="w-4 h-4" /> },
-                  { label: isAr ? "الحجوزات" : "Bookings", value: plan.maxBookings, icon: <CalendarRange className="w-4 h-4" /> },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
-                  >
-                    <div className="mt-0.5 h-7 w-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                      {item.icon}
+              {subscription.features?.length > 0 ? (
+                subscription.features.filter(f => f.limitValue != null).map((feature) => {
+                  let icon = <BadgeCheck className="w-4 h-4" />;
+                  if (feature.code === "MaxDoctors") icon = <Users className="w-4 h-4" />;
+                  if (feature.code === "MaxPatients") icon = <UserRound className="w-4 h-4" />;
+                  if (feature.code === "MaxBookings") icon = <CalendarRange className="w-4 h-4" />;
+
+                  return (
+                    <div
+                      key={feature.code}
+                      className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
+                    >
+                      <div className="mt-0.5 h-7 w-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        {icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                           <p className="font-black text-sm text-on-surface">
+                             {isAr ? (feature.nameAr || feature.name) : feature.name}
+                           </p>
+                           <p className="text-xs font-black text-slate-600">
+                             {feature.currentUsage ?? 0} / {feature.limitValue == null ? (isAr ? "غير محدود" : "Unlimited") : feature.limitValue}
+                           </p>
+                        </div>
+                        {feature.limitValue && (
+                           <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary"
+                                style={{ width: `${Math.min(100, ((feature.currentUsage ?? 0) / feature.limitValue) * 100)}%` }}
+                              />
+                           </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-black text-sm text-on-surface">{item.label}</p>
-                      <p className="text-xs text-slate-500 font-medium">
-                        {item.value == null ? (isAr ? "غير محدود" : "Unlimited") : item.value}
-                      </p>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400 font-medium">
-                  {isAr ? "لم يتم تحميل حدود الباقة بعد." : "No plan limits found yet."}
+                  {isAr ? "لم يتم تحميل بيانات الاستخدام بعد." : "No usage data found yet."}
                 </div>
               )}
             </div>

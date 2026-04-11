@@ -13,6 +13,7 @@ namespace ClinicBookingSystem.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
+[RequireActiveSubscription]
 public class AppointmentsController : BaseController
 {
     public AppointmentsController(IMediator mediator) : base(mediator) { }

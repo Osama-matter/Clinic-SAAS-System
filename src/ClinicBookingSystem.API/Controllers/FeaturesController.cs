@@ -1,3 +1,4 @@
+using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.Application.Features.Features;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ namespace ClinicBookingSystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireActiveSubscription]
 public class FeaturesController : ControllerBase
 {
     private readonly IMediator _mediator;

@@ -1,4 +1,5 @@
 using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,12 @@ public class CheckPlanLimitAttribute : Attribute, IAsyncActionFilter
     {
         var tenantProvider = context.HttpContext.RequestServices.GetRequiredService<ITenantProvider>();
         var planService = context.HttpContext.RequestServices.GetRequiredService<IPlanService>();
+
+        if (tenantProvider.Role == UserRole.SuperAdmin)
+        {
+            await next();
+            return;
+        }
 
         if (tenantProvider.TenantId == null)
         {

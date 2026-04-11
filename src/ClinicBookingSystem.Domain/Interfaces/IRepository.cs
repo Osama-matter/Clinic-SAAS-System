@@ -10,6 +10,20 @@ public interface IRepository<T> where T : BaseEntity   // repesotry  use  to  pe
         System.Linq.Expressions.Expression<Func<T, bool>>? predicate = null,
         CancellationToken cancellationToken = default,
         params System.Linq.Expressions.Expression<Func<T, object>>[] includes); // get all method  can  send  a  lambda  expression  to filter the results and also  can send cancellation token to cancel the operation if needed and also can send a lambda expression to include related entities
+    
+    Task<bool> AnyAsync(
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default);
+
+    Task<int> CountAsync(
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default);
+
+    Task<T?> FirstOrDefaultAsync(
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default,
+        params System.Linq.Expressions.Expression<Func<T, object>>[] includes);
+
     Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, 
         System.Linq.Expressions.Expression<Func<T, bool>>? predicate = null,

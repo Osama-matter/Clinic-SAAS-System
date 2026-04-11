@@ -52,9 +52,9 @@ public class AuthController : BaseController
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenCommand command, CancellationToken ct)
         => Ok(await Mediator.Send(command, ct));
 
-    /// <summary>Create a new admin user (Admin only)</summary>
+    /// <summary>Create a new admin user (SuperAdmin only)</summary>
     [HttpPost("create-admin")]
-    //[Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "SuperAdminOnly")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

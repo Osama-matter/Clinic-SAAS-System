@@ -32,8 +32,8 @@ public class DoctorHandlers :
             ?? throw new DomainException("Tenant ID is required.");
 
         // Verify limit
-        var existingDoctors = await _uow.Doctors.GetAllAsync(d => d.TenantId == effectiveTenantId, cancellationToken);
-        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.DoctorLimit, existingDoctors.Count(), cancellationToken);
+        var existingDoctorsCount = await _uow.Doctors.CountAsync(d => d.TenantId == effectiveTenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.DoctorLimit, existingDoctorsCount, cancellationToken);
 
         // First check if email already exists
         var existingUser = await _uow.Users.GetAllAsync(u => u.Email == request.Email, cancellationToken);

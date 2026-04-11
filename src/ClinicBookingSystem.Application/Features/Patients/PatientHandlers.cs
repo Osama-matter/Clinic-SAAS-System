@@ -30,8 +30,8 @@ public class PatientHandlers :
     {
         var tenantId = _currentUser.TenantId
             ?? throw new DomainException("Tenant ID is required.");
-        var existingCount = await _uow.Patients.GetAllAsync(p => p.TenantId == tenantId, cancellationToken);
-        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.PatientLimit, existingCount.Count(), cancellationToken);
+        var existingCount = await _uow.Patients.CountAsync(p => p.TenantId == tenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.PatientLimit, existingCount, cancellationToken);
 
         var patient = new Patient
         {

@@ -1,6 +1,7 @@
 using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Enums;
+using ClinicBookingSystem.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
@@ -75,13 +76,10 @@ public class ApplicationDbContext : DbContext
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
-        {
-            if (entry.State == EntityState.Modified)
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-        }
+        => SaveChangesInternalAsync(cancellationToken);
 
+    private async Task<int> SaveChangesInternalAsync(CancellationToken cancellationToken)
+    {
         foreach (var entry in ChangeTracker.Entries<ITenantEntity>())
         {
             if (entry.State == EntityState.Added)
@@ -93,6 +91,87 @@ public class ApplicationDbContext : DbContext
             }
         }
 
-        return base.SaveChangesAsync(cancellationToken);
+        await EnforcePlanLimitsAsync(cancellationToken);
+
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        {
+            if (entry.State == EntityState.Modified)
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+        }
+
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnforcePlanLimitsAsync(CancellationToken cancellationToken)
+    {
+        var affectedTenantIds = ChangeTracker.Entries<ITenantEntity>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Property(nameof(ITenantEntity.TenantId)).CurrentValue)
+            .OfType<Guid>()
+            .Distinct()
+            .ToList();
+
+        if (affectedTenantIds.Count == 0)
+            return;
+
+        foreach (var tenantId in affectedTenantIds)
+        {
+            var subscription = await ClinicSubscriptions
+                .AsNoTracking()
+                .Where(s => s.ClinicId == tenantId
+                    && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial)
+                    && s.ExpiresAt > DateTime.UtcNow)
+                .OrderByDescending(s => s.ExpiresAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (subscription == null)
+                throw new DomainException("Clinic does not have an active subscription plan.");
+
+            if (subscription.Status == SubscriptionStatus.Trial)
+                continue;
+
+            var plan = await Plans
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == subscription.PlanId, cancellationToken)
+                ?? throw new DomainException("Subscription plan could not be found.");
+
+            await EnsureLimitAsync(
+                tenantId,
+                plan.MaxDoctors,
+                Doctors.IgnoreQueryFilters().CountAsync(d => !d.IsDeleted && d.TenantId == tenantId, cancellationToken),
+                ChangeTracker.Entries<Doctor>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId),
+                "doctors");
+
+            await EnsureLimitAsync(
+                tenantId,
+                plan.MaxPatients,
+                Patients.IgnoreQueryFilters().CountAsync(p => !p.IsDeleted && p.TenantId == tenantId, cancellationToken),
+                ChangeTracker.Entries<Patient>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId),
+                "patients");
+
+            await EnsureLimitAsync(
+                tenantId,
+                plan.MaxBookings,
+                Appointments.IgnoreQueryFilters().CountAsync(a => !a.IsDeleted && a.TenantId == tenantId, cancellationToken),
+                ChangeTracker.Entries<PatientAppointment>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId),
+                "appointments");
+        }
+    }
+
+    private static async Task EnsureLimitAsync(
+        Guid tenantId,
+        int? limit,
+        Task<int> persistedCountTask,
+        int pendingAddedCount,
+        string resourceName)
+    {
+        if (!limit.HasValue)
+            return;
+
+        var persistedCount = await persistedCountTask;
+        var projectedCount = persistedCount + pendingAddedCount;
+
+        if (projectedCount > limit.Value)
+            throw new DomainException($"Plan limit exceeded for {resourceName}. Tenant '{tenantId}' allows up to {limit.Value}.");
     }
 }

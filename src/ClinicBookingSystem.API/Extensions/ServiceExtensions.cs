@@ -91,6 +91,7 @@ public static class ServiceExtensions
         services.AddAuthorization(opt =>
         {
             opt.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "2"));
+            opt.AddPolicy("SuperAdminOnly", policy => policy.RequireRole("SuperAdmin", "6"));
             opt.AddPolicy("UserOrAdmin", policy => policy.RequireRole("User", "Admin", "1", "2", "0"));
             opt.AddPolicy("DoctorOnly", policy => policy.RequireRole("Doctor", "4", "Admin", "2", "Receptionist", "3"));
             opt.AddPolicy("StaffOnly", policy => policy.RequireRole("Admin", "Receptionist", "Doctor", "2", "3", "4"));

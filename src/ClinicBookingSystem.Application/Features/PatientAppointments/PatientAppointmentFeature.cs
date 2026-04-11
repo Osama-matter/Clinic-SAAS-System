@@ -3,6 +3,7 @@ using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
+using Hangfire;
 using MediatR;
 
 namespace ClinicBookingSystem.Application.Features.Appointments;
@@ -115,8 +116,8 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
         if (request.SlotDateTime < DateTime.UtcNow)
             throw new DomainException("Cannot book an appointment in the past.");
 
-        var count = await _uow.Appointments.GetAllAsync(a => a.TenantId == doctor.TenantId, cancellationToken);
-        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count.Count(), cancellationToken);
+        var count = await _uow.Appointments.CountAsync(a => a.TenantId == doctor.TenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count, cancellationToken);
 
         // Check if doctor has a schedule for this day
         var schedules = await _uow.Schedules.GetAllAsync(
@@ -133,28 +134,22 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
             throw new DomainException("The requested slot is outside the doctor's working hours.");
 
         // Check for blocked slots
-        var isBlocked = await _uow.BlockedSlots.GetAllAsync(
+        if (await _uow.BlockedSlots.AnyAsync(
             b => b.DoctorId == request.DoctorId && request.SlotDateTime >= b.StartTime && request.SlotDateTime < b.EndTime,
-            cancellationToken);
-
-        if (isBlocked.Any())
+            cancellationToken))
             throw new SchedulingConflictException("This time slot is blocked.");
 
         // Check for existing appointments at this slot (Doctor side)
-        var doctorConflict = await _uow.Appointments.GetAllAsync(
+        if (await _uow.Appointments.AnyAsync(
             a => a.DoctorId == request.DoctorId && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
-            cancellationToken);
-
-        if (doctorConflict.Any())
+            cancellationToken))
             throw new SchedulingConflictException("This doctor is already booked for this slot.");
 
         // Check for existing appointments at this slot (Patient side)
         var userId = _currentUser.UserId!.Value;
-        var patientConflict = await _uow.Appointments.GetAllAsync(
+        if (await _uow.Appointments.AnyAsync(
             a => a.UserId == userId && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
-            cancellationToken);
-
-        if (patientConflict.Any())
+            cancellationToken))
             throw new SchedulingConflictException("You already have another appointment at this time.");
 
         var patientAppointment = new PatientAppointment
@@ -199,8 +194,8 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
         var patientEmail = _currentUser.Email;
         if (!string.IsNullOrEmpty(patientEmail))
         {
-            await _emailService.SendBookingConfirmationAsync(
-                patientEmail, $"Appointment with Dr. {doctor.Name}", request.SlotDateTime, cancellationToken);
+            BackgroundJob.Enqueue<IEmailService>(emailSvc => 
+                emailSvc.SendBookingConfirmationAsync(patientEmail, $"Appointment with Dr. {doctor.Name}", request.SlotDateTime, CancellationToken.None));
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
@@ -252,8 +247,8 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
             throw new DomainException("Cannot book an appointment in the past.");
 
         await _saas.CheckFeatureEnabledAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.OnlineBooking, cancellationToken);
-        var count = await _uow.Appointments.GetAllAsync(a => a.DoctorId == doctor.Id, cancellationToken); // Alternatively rely on Tenant check if needed inside Saas Service
-        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count.Count(), cancellationToken);
+        var count = await _uow.Appointments.CountAsync(a => a.TenantId == doctor.TenantId, cancellationToken);
+        await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count, cancellationToken);
 
         // Check if doctor has a schedule for this day
         var schedules = await _uow.Schedules.GetAllAsync(
@@ -278,20 +273,16 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
             throw new SchedulingConflictException("This time slot is blocked.");
 
         // Check for existing appointments at this slot (Doctor side)
-        var doctorConflict = await _uow.Appointments.GetAllAsync(
+        if (await _uow.Appointments.AnyAsync(
             a => a.DoctorId == request.DoctorId && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
-            cancellationToken);
-
-        if (doctorConflict.Any())
+            cancellationToken))
             throw new SchedulingConflictException("This doctor is already booked for this slot.");
 
         // Check for existing appointments at this slot (Patient side - Guest)
-        var patientConflict = await _uow.Appointments.GetAllAsync(
+        if (await _uow.Appointments.AnyAsync(
             a => (a.PatientPhone == request.PatientPhone || a.PatientEmail == request.PatientEmail) 
                 && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
-            cancellationToken);
-
-        if (patientConflict.Any())
+            cancellationToken))
             throw new SchedulingConflictException("An appointment with this phone or email already exists at this time.");
 
         var bookingRef = Guid.NewGuid().ToString("N")[..12].ToUpper();
@@ -341,8 +332,8 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
         var patientEmail = patientAppointment.PatientEmail;
         if (!string.IsNullOrEmpty(patientEmail))
         {
-            await _emailService.SendBookingConfirmationAsync(
-                patientEmail, $"Appointment with Dr. {doctor.Name}", request.SlotDateTime, cancellationToken);
+            BackgroundJob.Enqueue<IEmailService>(emailSvc => 
+                emailSvc.SendBookingConfirmationAsync(patientEmail, $"Appointment with Dr. {doctor.Name}", request.SlotDateTime, CancellationToken.None));
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
@@ -428,19 +419,15 @@ public class PublicRescheduleAppointmentCommandHandler : IRequestHandler<PublicR
             throw new DomainException("Cannot reschedule an appointment to a time in the past.");
 
         // Check new slot availability
-        var isBlocked = await _uow.BlockedSlots.GetAllAsync(
+        if (await _uow.BlockedSlots.AnyAsync(
             b => b.DoctorId == appointment.DoctorId && request.NewSlotDateTime >= b.StartTime && request.NewSlotDateTime < b.EndTime,
-            cancellationToken);
-
-        if (isBlocked.Any())
+            cancellationToken))
             throw new SchedulingConflictException("The new time slot is blocked.");
 
-        var existing = await _uow.Appointments.GetAllAsync(
+        if (await _uow.Appointments.AnyAsync(
             a => a.DoctorId == appointment.DoctorId && a.SlotDateTime == request.NewSlotDateTime
                 && a.Status != AppointmentStatus.Cancelled && a.Id != appointment.Id,
-            cancellationToken);
-
-        if (existing.Any())
+            cancellationToken))
             throw new SchedulingConflictException("The new slot is already booked.");
 
         // Store old slot for logging/notification if needed
@@ -468,11 +455,12 @@ public class PublicRescheduleAppointmentCommandHandler : IRequestHandler<PublicR
         var patientEmail = appointment.User?.Email ?? appointment.PatientEmail;
         if (!string.IsNullOrEmpty(patientEmail))
         {
-            await _emailService.SendAsync(
-                patientEmail, 
-                "Appointment Rescheduled", 
-                $"<h2>Your appointment has been rescheduled</h2><p><strong>Dr. {appointment.Doctor.Name}</strong><br/>New Time: {appointment.SlotDateTime:dddd, MMMM d yyyy HH:mm}<br/>(Old Time: {oldSlot:MMM dd, HH:mm})</p>",
-                cancellationToken);
+            BackgroundJob.Enqueue<IEmailService>(emailSvc => 
+                emailSvc.SendAsync(
+                    patientEmail, 
+                    "Appointment Rescheduled", 
+                    $"<h2>Your appointment has been rescheduled</h2><p><strong>Dr. {appointment.Doctor.Name}</strong><br/>New Time: {appointment.SlotDateTime:dddd, MMMM d yyyy HH:mm}<br/>(Old Time: {oldSlot:MMM dd, HH:mm})</p>",
+                    CancellationToken.None));
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
@@ -631,8 +619,9 @@ public class UpdateAppointmentStatusCommandHandler : IRequestHandler<UpdateAppoi
             if (!string.IsNullOrEmpty(email))
             {
                 var doctor = await _uow.Doctors.GetByIdAsync(patientAppointment.DoctorId, cancellationToken);
-                await _emailService.SendAsync(email, "Your appointment is completed", 
-                    $"<h2>Thank you!</h2><p>Your appointment with Dr. {doctor?.Name ?? "Doctor"} on {patientAppointment.SlotDateTime:MMM dd, yyyy} is now marked as completed.</p>", cancellationToken);
+                BackgroundJob.Enqueue<IEmailService>(emailSvc => 
+                    emailSvc.SendAsync(email, "Your appointment is completed", 
+                    $"<h2>Thank you!</h2><p>Your appointment with Dr. {doctor.Name ?? "Doctor"} on {patientAppointment.SlotDateTime:MMM dd, yyyy} is now marked as completed.</p>", CancellationToken.None));
             }
         }
 

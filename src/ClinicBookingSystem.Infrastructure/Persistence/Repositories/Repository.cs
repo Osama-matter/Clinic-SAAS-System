@@ -35,6 +35,30 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         return await query.ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> AnyAsync(
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet.AnyAsync(predicate, cancellationToken);
+    }
+
+    public async Task<int> CountAsync(
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet.CountAsync(predicate, cancellationToken);
+    }
+
+    public async Task<T?> FirstOrDefaultAsync(
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default,
+        params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
+    {
+        var query = _dbSet.AsQueryable();
+        if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
+        return await query.FirstOrDefaultAsync(predicate, cancellationToken);
+    }
+
     public async Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, 
         System.Linq.Expressions.Expression<Func<T, bool>>? predicate = null,

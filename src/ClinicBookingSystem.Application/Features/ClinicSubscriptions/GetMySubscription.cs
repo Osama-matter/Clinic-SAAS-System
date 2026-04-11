@@ -62,49 +62,62 @@ public class GetMySubscriptionQueryHandler : IRequestHandler<GetMySubscriptionQu
                 new List<SubscriptionFeatureDto>());
         }
 
-        var subscription = (await _uow.ClinicSubscriptions.GetAllAsync(
+        var allSubscriptions = (await _uow.ClinicSubscriptions.GetAllAsync(
                 cs => cs.ClinicId == tenantId,
                 cancellationToken,
                 cs => cs.Plan))
-            .OrderByDescending(cs => cs.CreatedAt)
-            .FirstOrDefault()
-            ?? throw new NotFoundException(nameof(ClinicSubscription), tenantId);
-
-        var planFeatures = await _uow.PlanFeatures.GetAllAsync(
-            pf => pf.PlanId == subscription.PlanId,
-            cancellationToken,
-            pf => pf.Feature);
+            .ToList();
 
         var now = DateTime.UtcNow;
+        var subscription = allSubscriptions
+            .Where(cs =>
+                (cs.Status == SubscriptionStatus.Active || cs.Status == SubscriptionStatus.Trial) &&
+                cs.ExpiresAt > now)
+            .OrderByDescending(cs => cs.ExpiresAt)
+            .ThenByDescending(cs => cs.CreatedAt)
+            .FirstOrDefault()
+            ?? allSubscriptions
+                .OrderByDescending(cs => cs.CreatedAt)
+                .FirstOrDefault()
+            ?? throw new NotFoundException(nameof(ClinicSubscription), tenantId);
+
         var effectiveStatus = subscription.Status == SubscriptionStatus.Active && subscription.ExpiresAt < now
             ? SubscriptionStatus.Expired
             : subscription.Status;
         var daysRemaining = (int)Math.Ceiling((subscription.ExpiresAt - now).TotalDays);
 
         // Fetch current usage counts
-        var doctorsCount = (await _uow.Doctors.GetAllAsync(d => d.TenantId == tenantId, cancellationToken)).Count();
-        var patientsCount = (await _uow.Patients.GetAllAsync(p => p.TenantId == tenantId, cancellationToken)).Count();
-        var bookingsCount = (await _uow.Appointments.GetAllAsync(a => a.TenantId == tenantId, cancellationToken)).Count();
+        var doctorsCount = await _uow.Doctors.CountAsync(d => d.TenantId == tenantId, cancellationToken);
+        var patientsCount = await _uow.Patients.CountAsync(p => p.TenantId == tenantId, cancellationToken);
+        var bookingsCount = await _uow.Appointments.CountAsync(a => a.TenantId == tenantId, cancellationToken);
 
-        var featureDtos = planFeatures.Select(pf => {
-            var code = pf.Feature?.Code ?? string.Empty;
-            int? usage = code switch
-            {
-                "MaxDoctors" => doctorsCount,
-                "MaxPatients" => patientsCount,
-                "MaxBookings" => bookingsCount,
-                _ => null
-            };
+        var featureDtos = new List<SubscriptionFeatureDto>();
+        if (subscription.Plan != null)
+        {
+            featureDtos.Add(new SubscriptionFeatureDto(
+                "MaxDoctors",
+                "Doctors",
+                "الدكاترة",
+                true,
+                subscription.Plan.MaxDoctors,
+                doctorsCount));
 
-            return new SubscriptionFeatureDto(
-                code,
-                pf.Feature?.Name ?? string.Empty,
-                pf.Feature?.NameAr,
-                pf.IsEnabled,
-                pf.LimitValue,
-                usage
-            );
-        }).ToList();
+            featureDtos.Add(new SubscriptionFeatureDto(
+                "MaxPatients",
+                "Patients",
+                "المرضى",
+                true,
+                subscription.Plan.MaxPatients,
+                patientsCount));
+
+            featureDtos.Add(new SubscriptionFeatureDto(
+                "MaxBookings",
+                "Bookings",
+                "الحجوزات",
+                true,
+                subscription.Plan.MaxBookings,
+                bookingsCount));
+        }
 
         return new MySubscriptionDto(
             subscription.Id,
