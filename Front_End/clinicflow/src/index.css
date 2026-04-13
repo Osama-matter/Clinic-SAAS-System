@@ -4,59 +4,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ClinicFlow Medical Design System — Clinical Grade
+ * Philosophy: Calm authority. Zero noise. Built for 12-hour shifts.
+ * Inspired by: Epic Systems, Cerner, Apple Health
+ */
+
 :root {
-  /* Premium Palette - More vibrant & Deep */
-  --primary: #0066FF;
-  --primary-hover: #0052CC;
-  --primary-light: #EBF3FF;
-  --primary-glow: rgba(0, 102, 255, 0.4);
+  /* ─── Medical Blue Palette ───────────────────────────────────────────────── */
+  /* Desaturated, professional — not electric */
+  --primary: #2B6CB0;           /* Calm steel blue — trusted, legible */
+  --primary-hover: #2558A0;     /* Slightly deeper on interaction */
+  --primary-light: #EBF4FF;     /* Very soft tint for selected/active bg */
+  --primary-glow: rgba(43, 108, 176, 0.12); /* Subtle only — no neon */
 
-  --secondary: #FF3B30;
-  --secondary-hover: #E03126;
+  /* Clinical red — emergency/alert only, not decorative */
+  --secondary: #C0392B;         /* Muted brick red, not alarming */
+  --secondary-hover: #A93226;
 
-  /* Backgrounds */
-  --background: #F8FAFC;
-  --surface: #FFFFFF;
-  --surface-alt: #F1F4F9;
-  --surface-container: #E8EDF5;
-  --surface-container-high: #E2E8F0;
+  /* ─── Backgrounds ────────────────────────────────────────────────────────── */
+  /* Off-white base — pure white causes eye strain in clinical settings */
+  --background: #F4F6F8;        /* Soft cool gray, not stark white */
+  --surface: #FFFFFF;           /* Card/panel surfaces — clean but not glaring */
+  --surface-alt: #EEF1F5;       /* Slightly recessed areas */
+  --surface-container: #E6EAF0; /* Section backgrounds, sidebars */
+  --surface-container-high: #D9DFE8; /* Borders/dividers w/ slight depth */
 
-  /* Content */
-  --on-surface: #0F172A;
-  --on-surface-variant: #64748B;
-  --outline: #CBD5E1;
+  /* ─── Content / Text ─────────────────────────────────────────────────────── */
+  /* Never pure black — reduces harshness for prolonged reading */
+  --on-surface: #1A2535;        /* Near-black, slight blue tone for medical context */
+  --on-surface-variant: #5A6B80; /* Secondary labels, metadata, timestamps */
+  --outline: #C8D0DA;           /* Input borders, card dividers */
 
-  /* Status */
-  --success: #10B981;
-  --warning: #F59E0B;
-  --error: #EF4444;
+  /* ─── Clinical Status Colors ─────────────────────────────────────────────── */
+  /* Muted, accessible — never screaming */
+  --success: #2E7D52;           /* Forest green — stable, discharged */
+  --warning: #B45309;           /* Amber-brown — cautionary, not alarming */
+  --error: #B91C1C;             /* Deep red — critical but not panic-inducing */
+  --info: #0369A1;              /* Steel info blue — notes, observations */
 
-  --radius-xl: 1.5rem;
-  --radius-2xl: 2.5rem;
+  /* ─── Radii ──────────────────────────────────────────────────────────────── */
+  /* Reduced from overly rounded — more clinical precision */
+  --radius-xl: 0.875rem;        /* 14px — rounded but controlled */
+  --radius-2xl: 1.25rem;        /* 20px — modal/card max */
 }
 
+/* ─── Dark Mode ──────────────────────────────────────────────────────────────
+ * Lower contrast than default dark — prevents eye fatigue in dim rooms.
+ * Inspired by dark-mode EMR workstations and PACS imaging viewers.
+ */
 .dark {
-  --primary: #3B82F6;
-  --primary-hover: #60A5FA;
-  --primary-light: #1E293B;
-  --primary-glow: rgba(59, 130, 246, 0.4);
+  --primary: #5B9BD5;           /* Lighter steel blue — readable on dark bg */
+  --primary-hover: #7AB0DE;
+  --primary-light: #1A2A3E;     /* Subtle active/selected state bg */
+  --primary-glow: rgba(91, 155, 213, 0.10); /* Essentially no glow in dark mode */
 
-  --secondary: #EF4444;
-  --secondary-hover: #F87171;
+  --secondary: #CD6155;         /* Warm muted red — visible without panic */
+  --secondary-hover: #D98880;
 
-  --background: #0B1120;
-  --surface: #0F172A;
-  --surface-alt: #1E293B;
-  --surface-container: #1b243b;
-  --surface-container-high: #334155;
+  /* Dark surfaces — not pitch black, reduces halation/eye strain */
+  --background: #111827;        /* Deep blue-gray, not pure #000 */
+  --surface: #1C2637;           /* Main card surface */
+  --surface-alt: #253347;       /* Alternate panels */
+  --surface-container: #2C3E55; /* Nested containers */
+  --surface-container-high: #364F6B; /* Elevated dividers */
 
-  --on-surface: #F8FAFC;
-  --on-surface-variant: #94A3B8;
-  --outline: #334155;
+  /* Text — never pure white (#FFF creates glare on dark UI) */
+  --on-surface: #E2E8F0;        /* Soft off-white */
+  --on-surface-variant: #8FA3B8; /* Secondary labels — muted but legible */
+  --outline: #3A4F65;
+
+  --success: #4CAF7D;
+  --warning: #D4A017;
+  --error: #E57373;             /* Softened for dark context */
+  --info: #4FC3F7;
 
   color-scheme: dark;
 }
 
+/* ─── BASE LAYER ─────────────────────────────────────────────────────────────
+ * Global resets and type settings for clinical readability
+ */
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -77,19 +105,37 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    /* Slightly increased line height for scan-reading medical notes */
+    line-height: 1.6;
   }
 
+  /* Headings — toned down weight for clinical hierarchy */
   h1,
   h2,
   h3,
   h4 {
     font-family: 'Outfit', sans-serif;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+    font-weight: 700;           /* Reduced from 800 — less aggressive */
+    letter-spacing: -0.02em;   /* Slightly relaxed — easier to read at speed */
+    line-height: 1.2;
   }
 
-  /* RTL adjustments for spacing */
+  /* Tighter heading weight for in-record labels (h3/h4 equivalent) */
+  h3,
+  h4 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Clinical data labels — clear hierarchy without heavy bold */
+  label {
+    font-weight: 500;
+    font-size: 0.8125rem;      /* 13px — compact for dense forms */
+    letter-spacing: 0.01em;
+    color: var(--on-surface-variant);
+  }
+
+  /* ─── RTL adjustments ────────────────────────────────────────────────────── */
   html[dir="rtl"] .ml-auto {
     margin-left: 0;
     margin-right: auto;
@@ -109,92 +155,205 @@
   }
 }
 
+/* ─── COMPONENTS ─────────────────────────────────────────────────────────────
+ * Flat, calm, trustworthy — no glow, no animations, no ego
+ */
 @layer components {
+
+  /* Primary action — flat solid, no gradient, minimal shadow */
   .btn-vibrant {
-    @apply px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-500 relative overflow-hidden flex items-center justify-center gap-3 active:scale-95;
-    background: linear-gradient(135deg, var(--primary) 0%, #00C2FF 100%);
-    color: white;
-    box-shadow: 0 20px 40px -10px var(--primary-glow);
+    @apply px-6 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-200 relative overflow-hidden flex items-center justify-center gap-2 active:scale-[0.98];
+    background-color: var(--primary);
+    color: #FFFFFF;
+    /* Subtle shadow only — depth without drama */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.12), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    /* No gradient — flat is more trustworthy in medical context */
   }
 
   .btn-vibrant::after {
     content: '';
-    @apply absolute inset-0 bg-white/20 opacity-0 transition-opacity duration-300;
+    @apply absolute inset-0 opacity-0 transition-opacity duration-200;
+    background-color: rgba(255, 255, 255, 0.08);
   }
 
   .btn-vibrant:hover {
-    @apply -translate-y-1 shadow-2xl;
-    box-shadow: 0 25px 50px -12px var(--primary-glow);
+    background-color: var(--primary-hover);
+    /* Removed: translate, heavy shadow, glow */
+    box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.14);
   }
 
   .btn-vibrant:hover::after {
     @apply opacity-100;
   }
 
+  /* Secondary / ghost action — for non-critical interactions */
   .btn-outline-premium {
-    @apply px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest border-2 text-primary transition-all duration-500 active:scale-95 flex items-center justify-center gap-3;
-    border-color: rgba(0, 102, 255, 0.2);
+    @apply px-6 py-3 rounded-xl font-semibold text-sm tracking-wide border transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2;
+    color: var(--primary);
+    border-color: var(--outline);
+    background-color: transparent;
   }
 
   .btn-outline-premium:hover {
-    background-color: rgba(0, 102, 255, 0.05);
-    border-color: rgba(0, 102, 255, 0.4);
+    background-color: var(--primary-light);
+    border-color: var(--primary);
   }
 
+  /* ─── Clinical Record Card ────────────────────────────────────────────────
+   * Clean. No heavy elevation. Scannable at a glance.
+   * Critical: patient records need calm, not drama.
+   */
   .card-premium {
-    @apply p-8 rounded-[var(--radius-xl)] bg-surface border border-outline transition-all duration-700 relative overflow-hidden;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+    @apply p-6 rounded-[var(--radius-xl)] bg-surface border border-outline transition-all duration-300 relative overflow-hidden;
+    /* Feather-light shadow — depth without weight */
+    box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.05);
   }
 
   .card-premium:hover {
-    @apply -translate-y-2;
-    border-color: rgba(0, 102, 255, 0.2);
-    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.08);
+    /* No translate — avoids disorienting movement in clinical lists */
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.08);
   }
 
+  /* ─── Input Fields ────────────────────────────────────────────────────────
+   * Calm, clear — critical for prescription entry / data accuracy
+   * Over-styled inputs cause errors; these prioritize clarity
+   */
   .input-field {
-    @apply w-full px-6 py-4 rounded-2xl border border-outline bg-surface-alt focus:bg-surface focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all duration-300 font-bold;
+    @apply w-full px-4 py-3 rounded-xl border border-outline bg-surface-alt
+      focus:bg-surface focus:ring-2 focus:ring-primary/20 focus:border-primary
+      outline-none transition-all duration-200 font-medium text-sm;
+    color: var(--on-surface);
   }
 
-  /* System-Based Examination Styles */
+  .input-field::placeholder {
+    color: var(--on-surface-variant);
+    font-weight: 400;
+  }
+
+  /* ─── System Examination Box ──────────────────────────────────────────────
+   * Used in physical exam / review of systems forms
+   */
   .system-box {
-    @apply p-4 rounded-3xl border transition-all;
+    @apply p-4 rounded-2xl border border-outline transition-all duration-200;
+    background-color: var(--surface-alt);
+  }
+
+  .system-box:focus-within {
+    border-color: var(--primary);
+    background-color: var(--surface);
   }
 
   .system-input {
-    @apply w-full p-2.5 bg-white/80 text-on-surface rounded-xl text-xs font-bold border outline-none transition-all focus:ring-2 focus:ring-offset-1 shadow-sm;
+    @apply w-full p-2.5 rounded-xl text-xs font-medium border border-outline outline-none transition-all duration-200;
+    background-color: var(--surface);
+    color: var(--on-surface);
+    box-shadow: none;
+  }
+
+  .system-input:focus {
+    @apply ring-2 ring-primary/15 border-primary;
+  }
+
+  /* ─── Status / Alert Badges ───────────────────────────────────────────────
+   * MEDICAL SAFETY: always paired with icon + text label, never color alone
+   */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold;
+    /* Always paired with a text label — color is supplement, not sole indicator */
+  }
+
+  .status-badge--stable {
+    background-color: rgba(46, 125, 82, 0.10);
+    color: var(--success);
+    border: 1px solid rgba(46, 125, 82, 0.20);
+  }
+
+  .status-badge--caution {
+    background-color: rgba(180, 83, 9, 0.10);
+    color: var(--warning);
+    border: 1px solid rgba(180, 83, 9, 0.20);
+  }
+
+  .status-badge--critical {
+    background-color: rgba(185, 28, 28, 0.10);
+    color: var(--error);
+    border: 1px solid rgba(185, 28, 28, 0.20);
+  }
+
+  .status-badge--info {
+    background-color: rgba(3, 105, 161, 0.10);
+    color: var(--info);
+    border: 1px solid rgba(3, 105, 161, 0.20);
+  }
+
+  /* ─── Clinical Data Table Row ─────────────────────────────────────────────
+   * For patient lists, medication tables, lab results
+   */
+  .data-row {
+    @apply flex items-center gap-4 px-4 py-3 border-b border-outline transition-colors duration-150;
+  }
+
+  .data-row:hover {
+    background-color: var(--primary-light);
+    /* No scale/translate — rows must stay stable for accurate clicking */
+  }
+
+  /* ─── Section Divider Label ───────────────────────────────────────────────
+   * Replaces heavy headers — keeps form hierarchy calm
+   */
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-widest;
+    color: var(--on-surface-variant);
+    letter-spacing: 0.08em;
   }
 }
 
+/* ─── UTILITIES ──────────────────────────────────────────────────────────────
+ */
 @layer utilities {
+
+  /* ─── Glass morphism — softened for clinical context ─────────────────────
+   * More opaque than before — readability > aesthetic
+   */
   .glass {
-    @apply backdrop-blur-3xl border border-white/20 shadow-2xl;
-    background-color: rgba(255, 255, 255, 0.6);
+    @apply backdrop-blur-xl border shadow-sm;
+    background-color: rgba(255, 255, 255, 0.75);
+    border-color: rgba(200, 208, 218, 0.50);
   }
 
   .dark .glass {
-    background-color: rgba(15, 23, 42, 0.6);
-    border-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(28, 38, 55, 0.80);
+    border-color: rgba(58, 79, 101, 0.40);
   }
 
+  /* ─── Text Gradients — calm, not neon ────────────────────────────────────
+   * Used for headings only — very subtle range
+   */
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-slate-950 via-slate-800 to-primary;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--on-surface) 0%, var(--primary) 100%);
   }
 
   .text-gradient-primary {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-primary from-0% to-[#00C2FF] to-100%;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--primary) 0%, #5B9BD5 100%);
   }
 
+  /* ─── Background Mesh — extremely subtle ─────────────────────────────────
+   * Clinical UIs need calm backgrounds — barely-there ambient color
+   */
   .mesh-gradient {
     background-color: var(--surface);
     background-image:
-      radial-gradient(at 0% 0%, rgba(0, 102, 255, 0.05) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(244, 63, 94, 0.03) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(0, 194, 255, 0.05) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, rgba(43, 108, 176, 0.03) 0px, transparent 60%),
+      radial-gradient(at 100% 0%, rgba(46, 125, 82, 0.02) 0px, transparent 60%),
+      radial-gradient(at 100% 100%, rgba(3, 105, 161, 0.03) 0px, transparent 60%),
+      radial-gradient(at 0% 100%, rgba(43, 108, 176, 0.02) 0px, transparent 60%);
   }
 
-
+  /* ─── Noise texture — barely visible, adds premium feel ─────────────────
+   */
   .noise-bg {
     position: relative;
   }
@@ -203,35 +362,75 @@
     content: '';
     position: absolute;
     inset: 0;
-    opacity: 0.02;
+    opacity: 0.015;             /* Reduced from 0.02 — more subtle */
     pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     z-index: 1;
   }
 
+  /* ─── Float animation — removed aggression, kept subtlety ────────────────
+   * Used sparingly — e.g., loading states, not decorative cards
+   */
   .animate-float {
-    animation: float 8s ease-in-out infinite;
+    animation: float 12s ease-in-out infinite; /* Slowed from 8s → 12s */
+  }
+
+  /* ─── Medical data utilities ──────────────────────────────────────────────
+   * Specific helpers for clinical reading patterns
+   */
+
+  /* Dense data: patient demographics, vitals */
+  .text-clinical-value {
+    font-family: 'Inter', 'Cairo', monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.01em;
+    color: var(--on-surface);
+  }
+
+  /* Warning banner — visible but not alarming */
+  .alert-clinical {
+    @apply flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-medium;
+    background-color: rgba(180, 83, 9, 0.06);
+    border-color: rgba(180, 83, 9, 0.18);
+    color: var(--warning);
+  }
+
+  /* Critical alert — still calm but unmistakable */
+  .alert-critical {
+    @apply flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-semibold;
+    background-color: rgba(185, 28, 28, 0.07);
+    border-color: rgba(185, 28, 28, 0.20);
+    color: var(--error);
+  }
+
+  /* Medication list row — tabular numerics for doses */
+  .rx-entry {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
   }
 }
 
+/* ─── KEYFRAMES ──────────────────────────────────────────────────────────────
+ * Slow, gentle — clinical UIs don't bounce
+ */
 @keyframes float {
-
   0%,
   100% {
-    transform: translateY(0) rotate(0);
+    transform: translateY(0) rotate(0deg);
   }
-
-  33% {
-    transform: translateY(-15px) rotate(1deg);
+  40% {
+    transform: translateY(-8px) rotate(0.5deg); /* Reduced from -15px */
   }
-
-  66% {
-    transform: translateY(5px) rotate(-1deg);
+  70% {
+    transform: translateY(3px) rotate(-0.5deg);
   }
 }
 
+/* ─── SCROLLBAR ───────────────────────────────────────────────────────────── */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -245,10 +444,9 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--on-surface-variant);
-  opacity: 0.3;
 }
 
-/* Mobile Utilities */
+/* ─── MOBILE ──────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .mobile-hide {
     display: none !important;

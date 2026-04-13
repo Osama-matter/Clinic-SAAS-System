@@ -171,7 +171,7 @@ public class ApplicationDbContext : DbContext
         var persistedCount = await persistedCountTask;
         var projectedCount = persistedCount + pendingAddedCount;
 
-        if (projectedCount > limit.Value)
+        if (projectedCount >= limit.Value)
             throw new DomainException($"Plan limit exceeded for {resourceName}. Tenant '{tenantId}' allows up to {limit.Value}.");
     }
 }

@@ -1,18 +1,8 @@
 import React, { useRef } from "react";
 import {
-    Activity,
-    ArrowLeft,
-    Beaker,
-    Calendar,
-    CheckCircle2,
-    ClipboardList,
-    Download,
-    FileSearch,
-    ImageIcon,
-    Pill,
-    Printer,
-    Stethoscope,
-    UserRound,
+    Activity, ArrowLeft, Beaker, Calendar, CheckCircle2,
+    ClipboardList, Download, FileSearch, ImageIcon, Pill,
+    Printer, Stethoscope, UserRound,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -20,16 +10,12 @@ import { toast } from "react-hot-toast";
 import { getFileUrl } from "../../services/api";
 import { isVitalDanger } from "./utils";
 
-const formatVisitType = (visitType) => {
-    switch (visitType) {
-        case 1:
-            return "Initial Consultation";
-        case 2:
-            return "Follow-Up";
-        case 3:
-            return "Emergency";
-        default:
-            return "Routine Checkup";
+const formatVisitType = (t) => {
+    switch (t) {
+        case 1: return "Initial Consultation";
+        case 2: return "Follow-Up";
+        case 3: return "Emergency";
+        default: return "Routine Checkup";
     }
 };
 
@@ -40,217 +26,154 @@ const getAssetSrc = (item) => {
     return null;
 };
 
-const hasText = (value) => typeof value === "string" && value.trim() !== "";
+const hasText = (v) => typeof v === "string" && v.trim() !== "";
 
-const ValueBlock = ({ label, value, className = "" }) => {
+// ── Reusable section card ──
+function SectionCard({ title, icon: Icon, iconColor = "text-primary", children, className = "" }) {
+    return (
+        <section className={`rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-5 ${className}`}>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/30">
+                <Icon className={`h-4 w-4 ${iconColor}`} />
+                <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">{title}</h2>
+            </div>
+            {children}
+        </section>
+    );
+}
+
+// ── Value block ──
+function ValueBlock({ label, value, className = "" }) {
     if (!hasText(value)) return null;
     return (
-        <div className={`rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70 ${className}`}>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                {label}
-            </p>
-            <p dir="auto" className="whitespace-pre-wrap break-words text-sm font-semibold leading-7 text-slate-800 dark:text-slate-100">
-                {value}
-            </p>
+        <div className={`rounded-lg border border-border/30 bg-secondary/40 p-3 ${className}`}>
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">{label}</p>
+            <p dir="auto" className="whitespace-pre-wrap break-words text-sm text-foreground leading-relaxed">{value}</p>
         </div>
     );
-};
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const VisitChartDetail = ({ selectedVisit, onBack }) => {
     const chartRef = useRef(null);
 
-    const imagingOrders = selectedVisit.imagingOrders || [];
-    const results = selectedVisit.results || [];
-    const diagnoses = selectedVisit.diagnoses || [];
-    const prescriptions = selectedVisit.prescriptions || [];
-    const labOrders = selectedVisit.labOrders || [];
-    const examination = selectedVisit.examination;
-    const vitals = selectedVisit.vitals;
+    const imagingOrders  = selectedVisit.imagingOrders  || [];
+    const results        = selectedVisit.results        || [];
+    const diagnoses      = selectedVisit.diagnoses      || [];
+    const prescriptions  = selectedVisit.prescriptions  || [];
+    const labOrders      = selectedVisit.labOrders      || [];
+    const examination    = selectedVisit.examination;
+    const vitals         = selectedVisit.vitals;
 
     const handleExportPDF = async () => {
         const element = chartRef.current;
         if (!element) return;
-
         const loadingToast = toast.loading("Generating PDF...");
         try {
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: "#ffffff",
-            });
+            const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: "#0f1117" });
             const imgData = canvas.toDataURL("image/png");
             const pdf = new jsPDF("p", "mm", "a4");
-            const imgProps = pdf.getImageProperties(imgData);
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
             pdf.save(`Visit_Chart_${selectedVisit.id.substring(0, 8)}.pdf`);
             toast.success("PDF exported successfully", { id: loadingToast });
         } catch (error) {
-            console.error("PDF generation failed:", error);
             toast.error("Failed to generate PDF", { id: loadingToast });
         }
     };
 
     const systemGroups = [
-        {
-            title: "Respiratory",
-            value: [
-                examination?.resp_Inspection,
-                examination?.resp_Palpation,
-                examination?.resp_Percussion,
-                examination?.resp_Auscultation,
-            ]
-                .filter(Boolean)
-                .join(" | "),
-        },
-        {
-            title: "Cardiovascular",
-            value: [
-                examination?.cvs_Pulse,
-                examination?.cvs_HeartSounds,
-                examination?.cvs_Murmurs,
-                examination?.cvs_Edema,
-            ]
-                .filter(Boolean)
-                .join(" | "),
-        },
-        {
-            title: "Nervous System",
-            value: [
-                examination?.cns_Consciousness,
-                examination?.cns_MotorPower,
-                examination?.cns_Sensation,
-                examination?.cns_Reflexes,
-            ]
-                .filter(Boolean)
-                .join(" | "),
-        },
-        {
-            title: "GIT",
-            value: [
-                examination?.git_Inspection,
-                examination?.git_Palpation,
-                examination?.git_Percussion,
-                examination?.git_Auscultation,
-            ]
-                .filter(Boolean)
-                .join(" | "),
-        },
-        {
-            title: "Musculoskeletal",
-            value: [
-                examination?.msk_Swelling,
-                examination?.msk_Tenderness,
-                examination?.msk_Rom,
-                examination?.msk_Deformity,
-            ]
-                .filter(Boolean)
-                .join(" | "),
-        },
-        {
-            title: "Skin",
-            value: [
-                examination?.skin_Rash,
-                examination?.skin_Ulcers,
-                examination?.skin_Pigmentation,
-                examination?.skin_Infection,
-            ]
-                .filter(Boolean)
-                .join(" | "),
-        },
-    ].filter((item) => hasText(item.value));
+        { title: "Respiratory",    value: [examination?.resp_Inspection, examination?.resp_Palpation, examination?.resp_Percussion, examination?.resp_Auscultation] },
+        { title: "Cardiovascular", value: [examination?.cvs_Pulse, examination?.cvs_HeartSounds, examination?.cvs_Murmurs, examination?.cvs_Edema] },
+        { title: "Nervous System", value: [examination?.cns_Consciousness, examination?.cns_MotorPower, examination?.cns_Sensation, examination?.cns_Reflexes] },
+        { title: "GIT",            value: [examination?.git_Inspection, examination?.git_Palpation, examination?.git_Percussion, examination?.git_Auscultation] },
+        { title: "Musculoskeletal",value: [examination?.msk_Swelling, examination?.msk_Tenderness, examination?.msk_Rom, examination?.msk_Deformity] },
+        { title: "Skin",           value: [examination?.skin_Rash, examination?.skin_Ulcers, examination?.skin_Pigmentation, examination?.skin_Infection] },
+    ]
+        .map((g) => ({ ...g, value: g.value.filter(Boolean).join(" | ") }))
+        .filter((g) => hasText(g.value));
 
     const vitalCards = [
         { label: "Blood Pressure", field: "bloodPressure", value: vitals?.bloodPressure, unit: "mmHg" },
-        { label: "Heart Rate", field: "heartRate", value: vitals?.heartRate, unit: "BPM" },
-        { label: "Temperature", field: "temperature", value: vitals?.temperature, unit: "deg C" },
-        { label: "O2 Saturation", field: "po2", value: vitals?.po2, unit: "%" },
-        { label: "RBS", field: "rbs", value: vitals?.rbs, unit: "mg/dL" },
-        { label: "Weight", field: "weight", value: vitals?.weight, unit: "kg" },
-        { label: "Height", field: "height", value: vitals?.height, unit: "cm" },
-        { label: "BMI", field: "bmi", value: vitals?.bmi, unit: "" },
-    ].filter((item) => item.value !== null && item.value !== undefined && item.value !== "");
+        { label: "Heart Rate",     field: "heartRate",     value: vitals?.heartRate,     unit: "BPM"  },
+        { label: "Temperature",    field: "temperature",   value: vitals?.temperature,   unit: "°C"   },
+        { label: "O₂ Saturation",  field: "po2",           value: vitals?.po2,           unit: "%"    },
+        { label: "RBS",            field: "rbs",           value: vitals?.rbs,           unit: "mg/dL"},
+        { label: "Weight",         field: "weight",        value: vitals?.weight,        unit: "kg"   },
+        { label: "Height",         field: "height",        value: vitals?.height,        unit: "cm"   },
+        { label: "BMI",            field: "bmi",           value: vitals?.bmi,           unit: ""     },
+    ].filter((c) => c.value !== null && c.value !== undefined && c.value !== "");
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-outline bg-surface p-4 shadow-sm">
+        <div className="space-y-5">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm px-4 py-3">
                 <button
                     onClick={onBack}
-                    className="flex items-center gap-2 rounded-2xl border border-outline bg-surface-alt px-5 py-3 text-sm font-bold text-on-surface-variant transition-all hover:border-primary/30 hover:text-primary"
+                    className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-4 py-2
+                        text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground transition-all"
                 >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
+                    <ArrowLeft className="h-4 w-4" /> Back
                 </button>
-
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => window.print()}
-                        className="rounded-2xl border border-outline bg-surface-alt p-3 text-on-surface-variant transition-all hover:border-primary/30 hover:text-primary"
-                        title="Print Chart"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-secondary/50
+                            text-muted-foreground hover:border-border hover:text-foreground transition-all"
+                        title="Print"
                     >
                         <Printer className="h-4 w-4" />
                     </button>
                     <button
                         onClick={handleExportPDF}
-                        className="flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-primary/40"
+                        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground
+                            shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                     >
-                        <Download className="h-4 w-4" />
-                        Export PDF
+                        <Download className="h-4 w-4" /> Export PDF
                     </button>
                 </div>
             </div>
 
-            <div
-                ref={chartRef}
-                className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-50 text-slate-900 shadow-2xl print:border-0 print:shadow-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-            >
-                <div className="border-b border-slate-200 bg-white px-8 py-8 dark:border-slate-800 dark:bg-slate-900">
-                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-primary text-white shadow-lg shadow-primary/20">
-                                    <ClipboardList className="h-7 w-7" />
+            {/* Chart body */}
+            <div ref={chartRef} className="space-y-5">
+                {/* Chart header */}
+                <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm px-6 py-5">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+                                    <ClipboardList className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                                        Clinical Record
-                                    </h1>
-                                    <p className="mt-1 text-xs font-black uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">
+                                    <h1 className="text-xl font-semibold text-foreground">Clinical Record</h1>
+                                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 mt-0.5">
                                         Medical encounter summary
                                     </p>
                                 </div>
                             </div>
-
-                            <div className="flex flex-wrap gap-3 text-sm font-bold">
-                                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                    <Calendar className="h-4 w-4 text-primary" />
+                            <div className="flex flex-wrap gap-2 text-sm">
+                                <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-3 py-1.5 text-muted-foreground">
+                                    <Calendar className="h-3.5 w-3.5 text-primary" />
                                     {new Date(selectedVisit.visitDate).toLocaleDateString("en-US", {
-                                        weekday: "long",
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
+                                        weekday: "long", year: "numeric", month: "long", day: "numeric",
                                     })}
                                 </div>
-                                <div className="rounded-2xl border border-primary/10 bg-primary/10 px-4 py-2 text-primary">
+                                <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-primary text-sm">
                                     {formatVisitType(selectedVisit.visitType)}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="min-w-[260px] rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/70">
-                            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                                Patient Information
-                            </p>
-                            <div className="flex items-center gap-4">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                                    <UserRound className="h-6 w-6" />
+                        <div className="min-w-[220px] rounded-lg border border-border/50 bg-secondary/40 p-4">
+                            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Patient Information</p>
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 bg-card text-muted-foreground">
+                                    <UserRound className="h-5 w-5" />
                                 </div>
-                                <div className="font-sans">
-                                    <p className="text-sm font-black text-slate-900 dark:text-white">Patient Record</p>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Patient Record</p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground/60">
                                         ID: {selectedVisit.patientId?.substring(0, 8)}...
                                     </p>
                                 </div>
@@ -259,300 +182,226 @@ const VisitChartDetail = ({ selectedVisit, onBack }) => {
                     </div>
                 </div>
 
-                <div className="space-y-8 px-8 py-8 font-sans">
-                    <div className="grid grid-cols-1 gap-8">
-                        <div className="space-y-8">
-                            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <FileSearch className="h-5 w-5 text-primary" />
-                                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Symptoms and Notes</h2>
+                {/* Main grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+                    {/* Left column */}
+                    <div className="space-y-5">
+                        {/* Symptoms & Notes */}
+                        <SectionCard title="Symptoms and Notes" icon={FileSearch}>
+                            <div className="grid gap-3">
+                                <ValueBlock label="Chief Complaint" value={selectedVisit.symptoms || "No symptoms recorded."} />
+                                <ValueBlock label="Clinical Notes" value={selectedVisit.notes} />
+                            </div>
+                        </SectionCard>
+
+                        {/* Physical Examination */}
+                        <SectionCard title="Physical Examination" icon={Stethoscope} iconColor="text-emerald-400">
+                            {examination ? (
+                                <div className="grid gap-3 lg:grid-cols-2">
+                                    <ValueBlock label="General Examination" value={examination.generalExamination} />
+                                    <ValueBlock label="Local Examination" value={examination.localExamination} />
+                                    <ValueBlock label="Additional Notes" value={examination.physicalNotes} className="lg:col-span-2" />
+                                    {systemGroups.map((g) => (
+                                        <ValueBlock key={g.title} label={g.title} value={g.value} />
+                                    ))}
                                 </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-border/30 bg-secondary/20 p-5
+                                    text-sm text-muted-foreground/50">
+                                    No structured physical examination documented.
+                                </div>
+                            )}
+                        </SectionCard>
+
+                        {/* Imaging */}
+                        <SectionCard title="Imaging and Attachments" icon={ImageIcon} iconColor="text-info">
+                            {imagingOrders.length > 0 ? (
                                 <div className="grid gap-4">
-                                    <ValueBlock
-                                        label="Chief Complaint"
-                                        value={selectedVisit.symptoms || "No symptoms recorded."}
-                                    />
-                                    <ValueBlock label="Clinical Notes" value={selectedVisit.notes} />
-                                </div>
-                            </section>
-
-                            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <Stethoscope className="h-5 w-5 text-emerald-500" />
-                                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Physical Examination</h2>
-                                </div>
-
-                                {examination ? (
-                                    <div className="grid gap-4 lg:grid-cols-2">
-                                        <ValueBlock label="General Examination" value={examination.generalExamination} />
-                                        <ValueBlock label="Local Examination" value={examination.localExamination} />
-                                        <ValueBlock
-                                            label="Additional Notes"
-                                            value={examination.physicalNotes}
-                                            className="lg:col-span-2"
-                                        />
-                                        {systemGroups.map((group) => (
-                                            <ValueBlock key={group.title} label={group.title} value={group.value} />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
-                                        No structured physical examination documented.
-                                    </div>
-                                )}
-                            </section>
-
-                            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <ImageIcon className="h-5 w-5 text-indigo-500" />
-                                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Imaging and Attachments</h2>
-                                </div>
-
-                                {imagingOrders.length > 0 ? (
-                                    <div className="grid grid-cols-1 gap-5">
-                                        {imagingOrders.map((img, index) => {
-                                            const imageSrc = getAssetSrc(img);
-                                            return (
-                                                <div
-                                                    key={`${img.id || "img"}-${index}`}
-                                                    className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50"
-                                                >
-                                                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-                                                        <div className="min-w-0">
-                                                            <p dir="auto" className="truncate text-sm font-black text-slate-900 dark:text-white">
-                                                                {img.imagingType || "Imaging Order"}
-                                                            </p>
-                                                            {hasText(img.bodyPart) && (
-                                                                <p dir="auto" className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                                                    {img.bodyPart}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {imageSrc ? (
-                                                        <a href={imageSrc} target="_blank" rel="noreferrer" className="block bg-slate-950">
-                                                            <img
-                                                                src={imageSrc}
-                                                                alt="Imaging attachment"
-                                                                className="h-64 w-full object-contain"
-                                                            />
-                                                        </a>
-                                                    ) : (
-                                                        <div className="flex h-64 items-center justify-center bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                                                            No attachment uploaded
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
-                                        No imaging orders or uploaded images available for this visit.
-                                    </div>
-                                )}
-                            </section>
-
-                            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <Beaker className="h-5 w-5 text-orange-500" />
-                                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Lab Results and Reports</h2>
-                                </div>
-
-                                <div className="space-y-5">
-                                    {results.length > 0 ? (
-                                        results.map((result, index) => {
-                                            const resultImage = getAssetSrc(result);
-                                            return (
-                                                <div
-                                                    key={`${result.id || "result"}-${index}`}
-                                                    className="grid grid-cols-1 gap-4 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50"
-                                                >
-                                                    <div className="grid gap-4">
-                                                        <ValueBlock label="Lab Result" value={result.labResult} />
-                                                        <ValueBlock label="Imaging Result" value={result.imagingResult} />
-                                                        <ValueBlock label="Other Notes" value={result.otherResult} />
-                                                    </div>
-
-                                                    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                                                        {resultImage ? (
-                                                            <a href={resultImage} target="_blank" rel="noreferrer" className="block bg-slate-950">
-                                                                <img
-                                                                    src={resultImage}
-                                                                    alt="Result attachment"
-                                                                    className="h-full min-h-[220px] w-full object-contain"
-                                                                />
-                                                            </a>
-                                                        ) : (
-                                                            <div className="flex min-h-[220px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">
-                                                                No result image
-                                                            </div>
+                                    {imagingOrders.map((img, i) => {
+                                        const src = getAssetSrc(img);
+                                        return (
+                                            <div key={i} className="overflow-hidden rounded-lg border border-border/30 bg-secondary/30">
+                                                <div className="flex items-center justify-between gap-2 border-b border-border/30 px-3 py-2.5">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-foreground">{img.imagingType || "Imaging Order"}</p>
+                                                        {hasText(img.bodyPart) && (
+                                                            <p className="text-xs text-muted-foreground/60 mt-0.5">{img.bodyPart}</p>
                                                         )}
                                                     </div>
                                                 </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
-                                            No test results recorded for this visit.
-                                        </div>
-                                    )}
+                                                {src ? (
+                                                    <a href={src} target="_blank" rel="noreferrer" className="block bg-black/30">
+                                                        <img src={src} alt="Imaging" className="h-56 w-full object-contain" />
+                                                    </a>
+                                                ) : (
+                                                    <div className="flex h-40 items-center justify-center bg-secondary/20 text-sm text-muted-foreground/40">
+                                                        No attachment uploaded
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-border/30 bg-secondary/20 p-5 text-sm text-muted-foreground/50">
+                                    No imaging orders or uploaded images available.
+                                </div>
+                            )}
+                        </SectionCard>
 
-                                    {labOrders.length > 0 && (
-                                        <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-                                            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                                                Requested Tests
+                        {/* Lab Results */}
+                        <SectionCard title="Lab Results and Reports" icon={Beaker} iconColor="text-warning">
+                            <div className="space-y-4">
+                                {results.length > 0 ? results.map((result, i) => {
+                                    const src = getAssetSrc(result);
+                                    return (
+                                        <div key={i} className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+                                            <div className="grid gap-3 mb-4">
+                                                <ValueBlock label="Lab Result" value={result.labResult} />
+                                                <ValueBlock label="Imaging Result" value={result.imagingResult} />
+                                                <ValueBlock label="Other Notes" value={result.otherResult} />
+                                            </div>
+                                            <div className="overflow-hidden rounded-lg border border-border/30">
+                                                {src ? (
+                                                    <a href={src} target="_blank" rel="noreferrer" className="block bg-black/30">
+                                                        <img src={src} alt="Result" className="h-48 w-full object-contain" />
+                                                    </a>
+                                                ) : (
+                                                    <div className="flex h-28 items-center justify-center bg-secondary/20 text-sm text-muted-foreground/40">
+                                                        No result image
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }) : (
+                                    <div className="rounded-lg border border-dashed border-border/30 bg-secondary/20 p-5 text-sm text-muted-foreground/50">
+                                        No test results recorded for this visit.
+                                    </div>
+                                )}
+
+                                {labOrders.length > 0 && (
+                                    <div className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+                                        <p className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Requested Tests</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {labOrders.map((lab, i) => (
+                                                <span key={i}
+                                                    className="rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
+                                                    {lab.testName || "Unnamed test"}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </SectionCard>
+                    </div>
+
+                    {/* Right sidebar */}
+                    <div className="space-y-5">
+                        {/* Vitals */}
+                        <SectionCard title="Vitals" icon={Activity} iconColor="text-destructive">
+                            {vitalCards.length > 0 ? (
+                                <div className="space-y-2">
+                                    {vitalCards.map((item) => (
+                                        <div key={item.label}
+                                            className={`flex items-center justify-between rounded-lg border p-3 transition-colors
+                                                ${isVitalDanger(item.field, item.value)
+                                                    ? "border-destructive/30 bg-destructive/10"
+                                                    : "border-border/30 bg-secondary/40"}`}>
+                                            <p className={`text-xs font-medium ${isVitalDanger(item.field, item.value) ? "text-destructive" : "text-muted-foreground"}`}>
+                                                {item.label}
                                             </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {labOrders.map((lab, index) => (
-                                                    <span
-                                                        key={`${lab.id || "lab"}-${index}`}
-                                                        dir="auto"
-                                                        className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-black text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300"
-                                                    >
-                                                        {lab.testName || "Unnamed test"}
-                                                    </span>
-                                                ))}
+                                            <div className="flex items-baseline gap-1">
+                                                <span className={`text-lg font-semibold ${isVitalDanger(item.field, item.value) ? "text-destructive" : "text-foreground"}`}>
+                                                    {item.value}
+                                                </span>
+                                                {item.unit && <span className="text-[10px] text-muted-foreground/50">{item.unit}</span>}
                                             </div>
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
-                            </section>
-                        </div>
-
-                        <div className="space-y-8">
-                            <section className="rounded-[2rem] border border-rose-200 bg-rose-50/70 p-6 shadow-sm dark:border-rose-500/20 dark:bg-rose-500/5">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <Activity className="h-5 w-5 text-rose-500" />
-                                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Vitals</h2>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-border/30 bg-secondary/20 p-5 text-sm text-muted-foreground/50">
+                                    No vitals captured.
                                 </div>
+                            )}
+                        </SectionCard>
 
-                                {vitalCards.length > 0 ? (
-                                    <div className="grid gap-3">
-                                        {vitalCards.map((item) => (
-                                            <div
-                                                key={item.label}
-                                                className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-                                            >
-                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                                                    {item.label}
-                                                </p>
-                                                <div className="mt-2 flex items-end gap-2">
-                                                    <span
-                                                        className={`text-2xl font-black ${
-                                                            isVitalDanger(item.field, item.value)
-                                                                ? "text-rose-600 dark:text-rose-400"
-                                                                : "text-slate-900 dark:text-white"
-                                                        }`}
-                                                    >
-                                                        {item.value}
-                                                    </span>
-                                                    {item.unit && (
-                                                        <span className="pb-1 text-xs font-bold text-slate-400 dark:text-slate-500">
-                                                            {item.unit}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-rose-200 bg-white/70 p-5 text-sm font-semibold text-slate-500 dark:border-rose-500/20 dark:bg-slate-800/40 dark:text-slate-400">
-                                        No vitals captured.
-                                    </div>
-                                )}
-                            </section>
-
-                            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <CheckCircle2 className="h-5 w-5 text-purple-500" />
-                                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Assessment and Diagnoses</h2>
+                        {/* Diagnoses */}
+                        <SectionCard title="Assessment & Diagnoses" icon={CheckCircle2} iconColor="text-violet-400">
+                            {diagnoses.length > 0 ? (
+                                <div className="space-y-2">
+                                    {diagnoses.map((d, i) => (
+                                        <div key={i} className="rounded-lg border border-border/30 bg-secondary/40 p-3">
+                                            {hasText(d.icd10Code) && (
+                                                <span className="mb-1.5 inline-flex rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-mono font-medium text-violet-400">
+                                                    {d.icd10Code}
+                                                </span>
+                                            )}
+                                            <p dir="auto" className="text-sm text-foreground/90 break-words">
+                                                {d.description || "Diagnosis entry"}
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-border/30 bg-secondary/20 p-4 text-sm text-muted-foreground/50">
+                                    No diagnoses recorded.
+                                </div>
+                            )}
+                        </SectionCard>
 
-                                {diagnoses.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {diagnoses.map((diagnosis, index) => (
-                                            <div
-                                                key={`${diagnosis.id || "dx"}-${index}`}
-                                                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50"
-                                            >
-                                                {hasText(diagnosis.icd10Code) && (
-                                                    <span className="mb-2 inline-flex rounded-lg bg-purple-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
-                                                        {diagnosis.icd10Code}
+                        {/* Prescriptions */}
+                        <section className="rounded-xl border border-primary/20 bg-primary p-5">
+                            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                                <Pill className="h-4 w-4 text-primary-foreground/70" />
+                                <h2 className="text-sm font-medium uppercase tracking-wider text-primary-foreground/70">Rx &amp; Plan</h2>
+                            </div>
+                            {prescriptions.length > 0 ? (
+                                <div className="space-y-3">
+                                    {prescriptions.map((rx, i) => (
+                                        <div key={i} className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+                                            {hasText(rx.medicationName) && (
+                                                <p dir="auto" className="text-sm font-semibold text-primary-foreground">{rx.medicationName}</p>
+                                            )}
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {hasText(rx.dosage) && (
+                                                    <span className="rounded bg-white/20 px-2 py-0.5 text-[10px] font-medium text-primary-foreground uppercase tracking-wider">
+                                                        {rx.dosage}
                                                     </span>
                                                 )}
-                                                <p dir="auto" className="break-words text-sm font-bold text-slate-800 dark:text-slate-100">
-                                                    {diagnosis.description || "Diagnosis entry"}
+                                                {hasText(rx.duration) && (
+                                                    <span className="rounded bg-white/20 px-2 py-0.5 text-[10px] font-medium text-primary-foreground uppercase tracking-wider">
+                                                        {rx.duration}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {hasText(rx.instructions) && (
+                                                <p dir="auto" className="mt-2 rounded-lg bg-black/10 p-2.5 text-xs text-primary-foreground/80 whitespace-pre-wrap">
+                                                    {rx.instructions}
                                                 </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
-                                        No diagnoses recorded.
-                                    </div>
-                                )}
-                            </section>
-
-                            <section className="rounded-[2rem] border border-primary/10 bg-primary p-6 text-white shadow-xl shadow-primary/20">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <Pill className="h-5 w-5" />
-                                    <h2 className="text-lg font-black">RX and Plan</h2>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
-
-                                {prescriptions.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {prescriptions.map((prescription, index) => (
-                                            <div
-                                                key={`${prescription.id || "rx"}-${index}`}
-                                                className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm"
-                                            >
-                                                {hasText(prescription.medicationName) && (
-                                                    <p dir="auto" className="text-base font-black">
-                                                        {prescription.medicationName}
-                                                    </p>
-                                                )}
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                    {hasText(prescription.dosage) && (
-                                                        <span className="rounded-lg bg-white/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]">
-                                                            {prescription.dosage}
-                                                        </span>
-                                                    )}
-                                                    {hasText(prescription.duration) && (
-                                                        <span className="rounded-lg bg-white/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]">
-                                                            {prescription.duration}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {hasText(prescription.instructions) && (
-                                                    <p
-                                                        dir="auto"
-                                                        className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-black/10 p-3 text-sm font-semibold text-white/90"
-                                                    >
-                                                        {prescription.instructions}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-white/15 bg-white/10 p-5 text-sm font-semibold text-white/80">
-                                        No medications or treatment plan recorded.
-                                    </div>
-                                )}
-                            </section>
-                        </div>
+                            ) : (
+                                <div className="rounded-lg border border-white/15 bg-white/10 p-4 text-sm text-primary-foreground/60">
+                                    No medications or treatment plan recorded.
+                                </div>
+                            )}
+                        </section>
                     </div>
+                </div>
 
-                    <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:border-slate-800 dark:text-slate-500 md:flex-row md:items-center md:justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                            Royal Clinic Verified Record
-                        </div>
-                        <div className="break-all">Digital Reference: {selectedVisit.id}</div>
-                        <div>Royal Clinic (c) {new Date().getFullYear()}</div>
+                {/* Footer */}
+                <div className="flex flex-col gap-2 border-t border-border/30 pt-4 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        Verified Medical Record
                     </div>
+                    <div className="break-all">Digital Reference: {selectedVisit.id}</div>
+                    <div>© {new Date().getFullYear()}</div>
                 </div>
             </div>
         </div>

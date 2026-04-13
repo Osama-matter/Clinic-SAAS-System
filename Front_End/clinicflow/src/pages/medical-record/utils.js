@@ -49,6 +49,53 @@ export const isVitalDanger = (field, val) => {
     return false;
 };
 
+export const getBMICategory = (bmi) => {
+    if (!bmi) return null;
+    const num = parseFloat(bmi);
+    if (num < 18.5) return { label: "Underweight", color: "text-blue-500", bg: "bg-blue-50" };
+    if (num < 25) return { label: "Normal", color: "text-emerald-500", bg: "bg-emerald-50" };
+    if (num < 30) return { label: "Overweight", color: "text-amber-500", bg: "bg-amber-50" };
+    return { label: "Obese", color: "text-red-500", bg: "bg-red-50" };
+};
+
+// ─── Smart Prescription Helpers ───
+
+/**
+ * قاعدة بيانات تجريبية للتفاعلات الدوائية.
+ * يمكن توسيعها مستقبلاً لتشمل المواد الفعالة بدقة أكبر.
+ */
+const DRUG_INTERACTION_RULES = [
+    { drugs: ["Aspirin", "Warfarin", "Marevan"], severity: "High", message: "تنبيه: خطر حدوث نزيف حاد عند الجمع بين هذه الأدوية!" },
+    { drugs: ["Ciprofloxacin", "Theophylline"], severity: "Medium", message: "تنبيه: مستويات سمية مرتفعة محتملة." },
+    { drugs: ["Metformin", "Contrast"], severity: "High", message: "تنبيه: خطر على وظائف الكلى (Lactic Acidosis)." },
+    { drugs: ["Sildenafil", "Nitroglycerin"], severity: "Critical", message: "خطر جداً: هبوط حاد ومفاجئ في ضغط الدم!" }
+];
+
+/**
+ * دالة ذكية للتحقق من التضارب بين الأدوية المختارة في الروشتة.
+ */
+export const checkDrugInteractions = (prescriptions) => {
+    const alerts = [];
+    const drugNames = prescriptions
+        .map(p => p.medicationName?.toLowerCase().trim())
+        .filter(name => !!name);
+
+    DRUG_INTERACTION_RULES.forEach(rule => {
+        const matches = rule.drugs.filter(drug => 
+            drugNames.some(name => name.includes(drug.toLowerCase()))
+        );
+        
+        if (matches.length >= 2) {
+            alerts.push({
+                severity: rule.severity,
+                message: rule.message,
+                involved: matches
+            });
+        }
+    });
+    return alerts;
+};
+
 export const resolveUploadUrl = (uploadResponse) => {
     if (!uploadResponse) return null;
     if (typeof uploadResponse === "string") return uploadResponse;

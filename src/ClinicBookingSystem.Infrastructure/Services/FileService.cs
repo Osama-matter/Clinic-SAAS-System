@@ -1,5 +1,6 @@
 using ClinicBookingSystem.Application.Interfaces;
 using Microsoft.AspNetCore.Hosting;
+using SkiaSharp;
 using System;
 using System.IO;
 using System.Threading;
@@ -31,13 +32,57 @@ public class FileService : IFileService
         var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
         var filePath = Path.Combine(uploadPath, uniqueFileName);
 
-        using (var stream = new FileStream(filePath, FileMode.Create))
+        // Process image if it's an image
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+
+        if (imageExtensions.Contains(extension))
         {
-            await fileStream.CopyToAsync(stream, cancellationToken);
+            await ProcessAndSaveImageAsync(fileStream, filePath, extension, cancellationToken);
+        }
+        else
+        {
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await fileStream.CopyToAsync(stream, cancellationToken);
+            }
         }
 
         // Return relative URL path
         return $"/uploads/{subDirectory}/{uniqueFileName}";
+    }
+
+    private async Task ProcessAndSaveImageAsync(Stream input, string outputPath, string extension, CancellationToken ct)
+    {
+        using var ms = new MemoryStream();
+        await input.CopyToAsync(ms, ct);
+        ms.Position = 0;
+
+        using var bitmap = SKBitmap.Decode(ms);
+        if (bitmap == null)
+        {
+            // Fallback if decoding fails
+            ms.Position = 0;
+            using var fs = new FileStream(outputPath, FileMode.Create);
+            await ms.CopyToAsync(fs, ct);
+            return;
+        }
+
+        // Standard size for clinic/doctor images
+        int maxWidth = 1200;
+        int maxHeight = 800;
+
+        float ratio = Math.Min((float)maxWidth / bitmap.Width, (float)maxHeight / bitmap.Height);
+        
+        using var finalBitmap = ratio < 1 
+            ? bitmap.Resize(new SKImageInfo((int)(bitmap.Width * ratio), (int)(bitmap.Height * ratio)), SKFilterQuality.Medium)
+            : bitmap;
+
+        using var image = SKImage.FromBitmap(finalBitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 75); // 75% quality for good balance
+        
+        using var stream = File.OpenWrite(outputPath);
+        data.SaveTo(stream);
     }
 
     public void DeleteFile(string filePath)

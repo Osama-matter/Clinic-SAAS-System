@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
+import imageCompression from "browser-image-compression";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -145,11 +146,26 @@ const ClinicPageSettingsPage = () => {
 
   const handleFileChange = async (field, file) => {
     if (!file) return;
+    
+    const tid = toast.loading(isAr ? "جارٍ معالجة الصورة..." : "Optimizing image...");
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      // 1. Compression options
+      const options = {
+        maxSizeMB: 0.2, // 200KB max
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      };
+
+      // 2. Compress the image
+      const compressedFile = await imageCompression(file, options);
+      
+      // 3. Convert to Data URL
+      const dataUrl = await readFileAsDataUrl(compressedFile);
       handleChange(field, dataUrl);
-    } catch {
-      toast.error(isAr ? "تعذر قراءة الملف." : "Could not read the file.");
+      toast.success(isAr ? "تم تحسين الصورة بنجاح" : "Image optimized successfully", { id: tid });
+    } catch (error) {
+      console.error("Compression error:", error);
+      toast.error(isAr ? "تعذر معالجة الملف." : "Could not process the file.", { id: tid });
     }
   };
 

@@ -87,14 +87,32 @@ public static class DbInitializer
 
     private static async Task SeedPlansAsync(ApplicationDbContext context)
     {
-        if (await context.Plans.AnyAsync())
-            return;
+        var plans = new List<Plan>
+        {
+            new Plan { Name = "Basic Plan", Price = 200, DurationDays = 30, MaxDoctors = 1, MaxPatients = 100, MaxBookings = 100, IsActive = true },
+            new Plan { Name = "Standard Plan", Price = 500, DurationDays = 30, MaxDoctors = 5, MaxPatients = 500, MaxBookings = 500, IsActive = true },
+            new Plan { Name = "Enterprise Plan", Price = 1000, DurationDays = 30, MaxDoctors = null, MaxPatients = null, MaxBookings = null, IsActive = true }
+        };
 
-        var basicPlan = new Plan { Name = "Basic Plan", Price = 200, DurationDays = 30, MaxDoctors = 1, MaxPatients = 100, MaxBookings = 100, IsActive = true };
-        var standardPlan = new Plan { Name = "Standard Plan", Price = 500, DurationDays = 30, MaxDoctors = 5, MaxPatients = 500, MaxBookings = 500, IsActive = true };
-        var enterprisePlan = new Plan { Name = "Enterprise Plan", Price = 1000, DurationDays = 30, MaxDoctors = null, MaxPatients = null, MaxBookings = null, IsActive = true };
+        foreach (var p in plans)
+        {
+            var existing = await context.Plans.FirstOrDefaultAsync(x => x.Name == p.Name);
+            if (existing == null)
+            {
+                await context.Plans.AddAsync(p);
+            }
+            else
+            {
+                // Sync limits
+                existing.MaxDoctors = p.MaxDoctors;
+                existing.MaxPatients = p.MaxPatients;
+                existing.MaxBookings = p.MaxBookings;
+                existing.Price = p.Price;
+                existing.DurationDays = p.DurationDays;
+                context.Plans.Update(existing);
+            }
+        }
 
-        await context.Plans.AddRangeAsync(basicPlan, standardPlan, enterprisePlan);
         await context.SaveChangesAsync();
     }
 

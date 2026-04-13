@@ -24,6 +24,8 @@ public interface IRepository<T> where T : BaseEntity   // repesotry  use  to  pe
         CancellationToken cancellationToken = default,
         params System.Linq.Expressions.Expression<Func<T, object>>[] includes);
 
+    IQueryable<T> AsQueryable();
+
     Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, 
         System.Linq.Expressions.Expression<Func<T, bool>>? predicate = null,

@@ -54,9 +54,6 @@ public class SaaSEnforcementService : ISaaSEnforcementService
         if (subscription == null)
             throw new DomainException("Clinic does not have an active subscription plan.");
 
-        if (subscription.Status == SubscriptionStatus.Trial)
-            return null;
-
         var plan = await _uow.Planes.GetByIdAsync(subscription.PlanId, cancellationToken)
             ?? throw new DomainException("Subscription plan could not be found.");
 

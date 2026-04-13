@@ -57,11 +57,14 @@ api.interceptors.request.use((config) => {
 });
 
 export const clinicService = {
-  getAll: () => api.get("/Tenants"),
+  getAll: () => api.get("/Tenants/summary"),
+  getSummary: () => api.get("/Tenants/summary"),
+  getDetails: (id) => api.get(`/Tenants/${id}`),
   create: (data) => api.post("/Tenants", data),
   update: (id, data) => api.put(`/Tenants/${id}`, data),
   delete: (id) => api.delete(`/Tenants/${id}`),
   getPublicProfile: (subdomain) => api.get(`/Tenants/public/${subdomain}`),
+  getPublicProfileImages: (subdomain) => api.get(`/Tenants/public/${subdomain}/images`),
   updateMyPage: (data) => api.put("/Tenants/my-page", data),
   setSelectedClinicId: (id) => localStorage.setItem("clinicflow_tenantId", id),
   getSelectedClinicId: () => localStorage.getItem("clinicflow_tenantId"),

@@ -62,7 +62,7 @@ public class DoctorHandlers :
         await _uow.Doctors.AddAsync(doctor, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        // Update user's DoctorId
+        // Update user's DoctorId and save
         user.DoctorId = doctor.Id;
         await _uow.Users.UpdateAsync(user, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);

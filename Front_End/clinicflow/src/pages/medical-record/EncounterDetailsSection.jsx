@@ -2,20 +2,24 @@ import React from "react";
 import { ClipboardList } from "lucide-react";
 
 const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode }) => (
-    <div className="bg-surface border border-outline p-8 rounded-[2.5rem] shadow-sm">
-        <h2 className="text-xl font-black flex items-center gap-3 text-on-surface border-b border-outline/50 pb-5 mb-8">
-            <ClipboardList className="w-6 h-6 text-primary" />{" "}
-            {viewMode === "edit-visit" ? "Edit Encounter Details" : "Encounter Details"}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-                <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-2 pl-1 opacity-60">
+    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
+        <div className="flex items-center gap-2 mb-5 pb-4 border-b border-border/50">
+            <ClipboardList className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                {viewMode === "edit-visit" ? "Edit Encounter Details" : "Encounter Details"}
+            </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Assign Doctor
                 </label>
                 <select
                     value={visitData.doctorId}
                     onChange={(e) => setVisitData({ ...visitData, doctorId: e.target.value })}
-                    className="w-full p-4 border border-outline rounded-2xl bg-surface-alt font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                    className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
+                        focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
                 >
                     <option value="">-- Select Doctor --</option>
                     {doctors.map((d) => (
@@ -25,14 +29,16 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode })
                     ))}
                 </select>
             </div>
-            <div>
-                <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-2 pl-1 opacity-60">
+
+            <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Visit Type
                 </label>
                 <select
                     value={visitData.visitType}
                     onChange={(e) => setVisitData({ ...visitData, visitType: parseInt(e.target.value) })}
-                    className="w-full p-4 border border-outline rounded-2xl bg-surface-alt font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                    className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
+                        focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
                 >
                     <option value={1}>Initial Consultation</option>
                     <option value={2}>Follow-Up</option>
@@ -40,20 +46,23 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode })
                     <option value={4}>Routine Checkup</option>
                 </select>
             </div>
-            <div>
-                <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-2 pl-1 opacity-60">
-                    Date & Time
+
+            <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Date &amp; Time
                 </label>
                 <input
                     type="datetime-local"
                     value={visitData.visitDate}
                     onChange={(e) => setVisitData({ ...visitData, visitDate: e.target.value })}
-                    className="w-full p-4 border border-outline rounded-2xl bg-surface-alt font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                    className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
+                        focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
                 />
             </div>
         </div>
-        <div className="mt-8">
-            <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-2 pl-1 opacity-60">
+
+        <div className="mt-4 space-y-1.5">
+            <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Chief Complaint / Symptoms
             </label>
             <textarea
@@ -61,7 +70,9 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode })
                 value={visitData.symptoms}
                 onChange={(e) => setVisitData({ ...visitData, symptoms: e.target.value })}
                 placeholder="Patient's primary symptoms or reason for visit..."
-                className="w-full p-5 border border-outline rounded-2xl bg-surface-alt text-on-surface outline-none focus:border-primary font-bold placeholder:text-on-surface-variant/30 shadow-inner"
+                className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm text-foreground outline-none
+                    focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all resize-none
+                    placeholder:text-muted-foreground/40"
             />
         </div>
     </div>

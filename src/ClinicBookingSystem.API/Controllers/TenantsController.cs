@@ -25,6 +25,13 @@ public class TenantsController : ControllerBase
         return Ok(await _mediator.Send(new GetTenantsQuery()));
     }
 
+    /// <summary>Get all clinics summary (optimized for performance)</summary>
+    [HttpGet("summary")]
+    public async Task<ActionResult<IEnumerable<TenantSummaryDto>>> GetSummary()
+    {
+        return Ok(await _mediator.Send(new GetTenantsSummaryQuery()));
+    }
+
     /// <summary>Create a new clinic (Admin only)</summary>
     [HttpPost]
     public async Task<ActionResult<TenantDto>> Create(CreateTenantCommand command)
@@ -54,6 +61,14 @@ public class TenantsController : ControllerBase
     public async Task<ActionResult<ClinicPublicProfileDto>> GetPublicProfile(string subdomain)
     {
         return Ok(await _mediator.Send(new GetClinicPublicProfileQuery(subdomain)));
+    }
+
+    /// <summary>Get only clinic images (lazy load)</summary>
+    [AllowAnonymous]
+    [HttpGet("public/{subdomain}/images")]
+    public async Task<ActionResult<object>> GetPublicProfileImages(string subdomain)
+    {
+        return Ok(await _mediator.Send(new GetClinicPublicImagesQuery(subdomain)));
     }
 
     /// <summary>Update the current clinic public page</summary>

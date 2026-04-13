@@ -59,6 +59,8 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         return await query.FirstOrDefaultAsync(predicate, cancellationToken);
     }
 
+    public IQueryable<T> AsQueryable() => _dbSet.AsQueryable();
+
     public async Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, 
         System.Linq.Expressions.Expression<Func<T, bool>>? predicate = null,

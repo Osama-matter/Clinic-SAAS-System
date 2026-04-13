@@ -2,6 +2,7 @@ using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
 namespace ClinicBookingSystem.Application.Features.Tenants;
@@ -43,31 +44,33 @@ public class GetClinicPublicProfileQueryHandler : IRequestHandler<GetClinicPubli
         if (string.IsNullOrWhiteSpace(slug))
             throw new DomainException("Subdomain is required.");
 
-        var clinic = (await _uow.Tenants.GetAllAsync(
-                t => t.IsActive && t.IsPublicPageEnabled && t.Subdomain != null && t.Subdomain.ToLower() == slug,
-                cancellationToken))
-            .FirstOrDefault()
+        var clinicDto = await _uow.Tenants.AsQueryable()
+            .AsNoTracking()
+            .Where(t => t.IsActive && t.IsPublicPageEnabled && t.Subdomain != null && t.Subdomain.ToLower() == slug)
+            .Select(clinic => new ClinicPublicProfileDto
+            {
+                Id = clinic.Id,
+                Name = clinic.Name,
+                Subdomain = clinic.Subdomain,
+                DoctorName = clinic.DoctorName,
+                Specialty = clinic.Specialty,
+                Description = clinic.Description,
+                // Images are now loaded separately for performance
+                LogoUrl = null,
+                ClinicImageUrl = null,
+                DoctorImageUrl = null,
+                PrimaryColor = clinic.PrimaryColor,
+                PhoneNumber = clinic.PhoneNumber,
+                Address = clinic.Address,
+                WorkingHours = clinic.WorkingHours,
+                Services = ParseServices(clinic.Services),
+                IsActive = clinic.IsActive,
+                IsPublicPageEnabled = clinic.IsPublicPageEnabled
+            })
+            .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException(nameof(Tenant), slug);
 
-        return new ClinicPublicProfileDto
-        {
-            Id = clinic.Id,
-            Name = clinic.Name,
-            Subdomain = clinic.Subdomain,
-            DoctorName = clinic.DoctorName,
-            Specialty = clinic.Specialty,
-            Description = clinic.Description,
-            LogoUrl = clinic.LogoUrl,
-            ClinicImageUrl = clinic.ClinicImageUrl,
-            DoctorImageUrl = clinic.DoctorImageUrl,
-            PrimaryColor = clinic.PrimaryColor,
-            PhoneNumber = clinic.PhoneNumber,
-            Address = clinic.Address,
-            WorkingHours = clinic.WorkingHours,
-            Services = ParseServices(clinic.Services),
-            IsActive = clinic.IsActive,
-            IsPublicPageEnabled = clinic.IsPublicPageEnabled
-        };
+        return clinicDto;
     }
 
     private static List<string> ParseServices(string? servicesJson)

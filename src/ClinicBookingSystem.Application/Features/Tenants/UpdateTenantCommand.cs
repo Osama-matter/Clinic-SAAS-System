@@ -27,14 +27,21 @@ public record UpdateTenantCommand(
 public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, TenantDto>
 {
     private readonly IUnitOfWork _uow;
+    private readonly ClinicBookingSystem.Application.Interfaces.ICurrentUserService _currentUser;
 
-    public UpdateTenantCommandHandler(IUnitOfWork uow)
+    public UpdateTenantCommandHandler(IUnitOfWork uow, ClinicBookingSystem.Application.Interfaces.ICurrentUserService currentUser)
     {
         _uow = uow;
+        _currentUser = currentUser;
     }
 
     public async Task<TenantDto> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
     {
+        // Only SuperAdmin can update clinic global settings
+        var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
+        if (!isSuperAdmin)
+            throw new UnauthorizedActionException("Only SuperAdmin can update clinic settings.");
+
         var tenant = await _uow.Tenants.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Tenant), request.Id);
 

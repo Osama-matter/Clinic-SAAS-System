@@ -315,14 +315,29 @@ const ClinicLandingPage = ({ subdomain: propSubdomain }) => {
         setError(isAr ? "لا يمكن تحديد رابط العيادة." : "Clinic link could not be resolved.");
         setLoading(false); return;
       }
-      setLoading(true); setError("");
+      
+      // Keep existing data if we have it to avoid flicker
+      setError("");
+      
       try {
+        // 1. Fetch text-only profile (very fast)
         const res = await clinicService.getPublicProfile(resolvedSubdomain);
         setClinic(res.data);
+        setLoading(false);
+
+        // 2. Fetch images in background
+        const imgRes = await clinicService.getPublicProfileImages(resolvedSubdomain);
+        setClinic(prev => ({
+          ...prev,
+          ...imgRes.data
+        }));
       } catch (err) {
-        setClinic(null);
-        setError(err.response?.data?.message || (isAr ? "لم نعثر على هذه العيادة." : "Clinic not found."));
-      } finally { setLoading(false); }
+        if (!clinic) { // only show error if we don't have partial data
+          setClinic(null);
+          setError(err.response?.data?.message || (isAr ? "لم نعثر على هذه العيادة." : "Clinic not found."));
+          setLoading(false);
+        }
+      }
     };
     load();
   }, [resolvedSubdomain, isAr]);
@@ -355,14 +370,15 @@ const ClinicLandingPage = ({ subdomain: propSubdomain }) => {
     catch { toast.error(isAr ? "تعذر النسخ" : "Could not copy"); }
   };
 
-  /* ── LOADING ── */
-  if (loading) return (
+  /* ── LOADING (GHOST UI) ── */
+  if (loading && !clinic) return (
     <div className={`clp-root${isDark ? " dark" : ""} flex items-center justify-center min-h-screen`} dir={dir}>
-      <div className="text-center">
-        <Loader2 size={44} className="animate-spin mb-4" style={{ color: "var(--blue)", margin: "0 auto" }} />
-        <p className="font-ui" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-soft)" }}>
-          {isAr ? "جارٍ تحميل العيادة…" : "Initializing Clinic…"}
-        </p>
+      <div className="text-center animate-pulse">
+        <div className="w-20 h-20 bg-blue-500/10 rounded-3xl mx-auto mb-6 flex items-center justify-center">
+          <Activity size={32} className="text-blue-500/30" />
+        </div>
+        <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-lg mx-auto mb-4" />
+        <div className="h-4 w-32 bg-slate-100 dark:bg-slate-900 rounded-lg mx-auto" />
       </div>
     </div>
   );
@@ -438,7 +454,7 @@ const ClinicLandingPage = ({ subdomain: propSubdomain }) => {
             <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 border"
               style={{ background: "var(--blue-muted)", borderColor: "var(--blue-border)" }}>
               {clinic.logoUrl
-                ? <img src={getFileUrl(clinic.logoUrl)} alt="logo" className="w-full h-full object-cover" />
+                ? <img src={getFileUrl(clinic.logoUrl)} alt="logo" className="w-full h-full object-cover" loading="lazy" />
                 : <Building2 className="w-5 h-5" style={{ color: "var(--blue)" }} />}
             </div>
             <span className="clp-nav-name font-display truncate"
@@ -477,7 +493,8 @@ const ClinicLandingPage = ({ subdomain: propSubdomain }) => {
         {/* BG — strong dark overlay always, regardless of light/dark mode */}
         <div className="absolute inset-0 z-0">
           <img src={getFileUrl(coverImage)} alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }} />
+            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
+            loading="lazy" />
           <div style={{
             position: "absolute", inset: 0,
             background: "linear-gradient(120deg, rgba(4,12,36,.94) 0%, rgba(4,12,36,.82) 55%, rgba(4,12,36,.48) 100%)",
@@ -604,6 +621,7 @@ const ClinicLandingPage = ({ subdomain: propSubdomain }) => {
                 style={{ borderRadius: 22, aspectRatio: "4/5", maxHeight: 500 }}>
                 <img src={getFileUrl(coverImage)} alt=""
                   className="w-full h-full object-cover"
+                  loading="lazy"
                   style={{ transition: "transform .8s cubic-bezier(.22,1,.36,1)" }}
                   onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
                   onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}

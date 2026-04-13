@@ -8,121 +8,121 @@ const LabImagingOrdersSection = ({
     addImagingRow, updateImaging, removeImaging,
     handleFileChange,
 }) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8 border-t border-outline">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-6 border-t border-border/30">
         {/* Lab Orders */}
         <div>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <Beaker className="w-4 h-4" /> Lab Orders
-                </h3>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <Beaker className="h-4 w-4 text-emerald-400" />
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lab Orders</h3>
+                </div>
                 <button
                     type="button"
                     onClick={addLabOrderRow}
-                    className="text-emerald-600 bg-emerald-50 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-500/30
+                        bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                 >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="h-3.5 w-3.5" />
                 </button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
                 {visitData.labOrders.map((lab, index) => (
-                    <div
-                        key={index}
-                        className="flex gap-2 items-center bg-surface-alt p-2 pr-3 rounded-xl border border-outline"
-                    >
+                    <div key={index}
+                        className="flex gap-2 items-center rounded-lg border border-border/30 bg-secondary/30 p-2">
                         <input
                             type="text"
                             placeholder="Test Name (e.g. CBC)"
                             value={lab.testName}
                             onChange={(e) => updateLabOrder(index, "testName", e.target.value)}
-                            className="w-full p-2 bg-surface text-on-surface rounded-lg text-sm font-bold border border-outline outline-none focus:border-primary"
+                            className="flex-1 rounded-md border border-border/30 bg-card/50 px-2.5 py-1.5 text-sm text-foreground outline-none
+                                focus:border-primary/50 transition-all"
                         />
                         <button
                             type="button"
                             onClick={() => removeLabOrder(index)}
-                            className="p-2 text-red-500 hover:text-red-600 transition-colors"
+                            className="p-1.5 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                         </button>
                     </div>
                 ))}
                 {visitData.labOrders.length === 0 && (
-                    <p className="text-xs font-bold text-on-surface-variant py-2 italic">
-                        No labs ordered at this moment.
-                    </p>
+                    <p className="text-xs italic text-muted-foreground/50 py-2">No labs ordered at this moment.</p>
                 )}
             </div>
         </div>
 
         {/* Imaging Orders */}
         <div>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-black text-on-surface-variant uppercase tracking-widest flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4" /> Imaging Orders
-                </h3>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-info" />
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Imaging Orders</h3>
+                </div>
                 <button
                     type="button"
                     onClick={addImagingRow}
-                    className="text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 p-1.5 rounded-lg transition-colors"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-info/30
+                        bg-info/10 text-info hover:bg-info/20 transition-colors"
                 >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="h-3.5 w-3.5" />
                 </button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {visitData.imagingOrders.map((img, index) => (
-                    <div
-                        key={index}
-                        className="bg-surface-alt p-4 rounded-2xl border border-outline relative group/row"
-                    >
+                    <div key={index}
+                        className="group/row relative rounded-lg border border-border/30 bg-secondary/30 p-3">
                         <button
                             type="button"
                             onClick={() => removeImaging(index)}
-                            className="absolute -top-2 -right-2 p-1.5 bg-red-50 text-red-500 rounded-lg border border-red-100 opacity-0 group-hover/row:opacity-100 transition-all shadow-sm z-10"
+                            className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded border border-destructive/30
+                                bg-destructive/10 text-destructive opacity-0 group-hover/row:opacity-100 transition-all shadow-sm z-10"
                         >
-                            <X className="w-3 h-3" />
+                            <X className="h-3 w-3" />
                         </button>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2 mb-3">
                             <input
                                 type="text"
                                 placeholder="Type (e.g. MRI)"
                                 value={img.imagingType}
                                 onChange={(e) => updateImaging(index, "imagingType", e.target.value)}
-                                className="w-1/2 p-2 bg-surface text-on-surface rounded-lg text-sm font-bold border border-outline outline-none focus:border-primary"
+                                className="w-1/2 rounded-md border border-border/30 bg-card/50 px-2.5 py-1.5 text-sm text-foreground outline-none
+                                    focus:border-primary/50 transition-all"
                             />
                             <input
                                 type="text"
                                 placeholder="Body Part"
                                 value={img.bodyPart}
                                 onChange={(e) => updateImaging(index, "bodyPart", e.target.value)}
-                                className="w-1/2 p-2 bg-surface text-on-surface rounded-lg text-sm font-bold border border-outline outline-none focus:border-primary"
+                                className="w-1/2 rounded-md border border-border/30 bg-card/50 px-2.5 py-1.5 text-sm text-foreground outline-none
+                                    focus:border-primary/50 transition-all"
                             />
                         </div>
-                        <div className="mt-3">
-                            <label className="flex items-center justify-center gap-2 w-full cursor-pointer rounded-xl border border-dashed border-outline bg-surface px-4 py-3 text-xs font-bold text-on-surface-variant hover:border-primary/40 hover:bg-primary/5 transition-all">
-                                <ImageIcon className="w-4 h-4" />
-                                {img.imageUrl || img.imageData ? "Replace attachment" : "Attach image"}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => handleFileChange(index, e.target.files?.[0])}
+                        <label className="flex items-center justify-center gap-2 w-full cursor-pointer rounded-lg border border-dashed border-border/30
+                            bg-card/30 px-3 py-2.5 text-xs font-medium text-muted-foreground
+                            hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            {img.imageUrl || img.imageData ? "Replace attachment" : "Attach image"}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleFileChange(index, e.target.files?.[0])}
+                            />
+                        </label>
+                        {(img.imageUrl || img.imageData) && (
+                            <div className="mt-2 overflow-hidden rounded-lg border border-border/30">
+                                <img
+                                    src={img.imageUrl ? getFileUrl(img.imageUrl) : img.imageData}
+                                    alt="Imaging attachment"
+                                    className="h-28 w-full object-cover"
                                 />
-                            </label>
-                            {(img.imageUrl || img.imageData) && (
-                                <div className="mt-3 overflow-hidden rounded-xl border border-outline bg-surface">
-                                    <img
-                                        src={img.imageUrl ? getFileUrl(img.imageUrl) : img.imageData}
-                                        alt="Imaging attachment"
-                                        className="h-32 w-full object-cover"
-                                    />
-                                </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 ))}
                 {visitData.imagingOrders.length === 0 && (
-                    <p className="text-xs font-bold text-on-surface-variant py-2 italic opacity-50">
-                        No imaging attachments.
-                    </p>
+                    <p className="text-xs italic text-muted-foreground/50 py-2">No imaging attachments.</p>
                 )}
             </div>
         </div>
