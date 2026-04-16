@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
@@ -62,7 +62,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── Global Keyboard Shortcuts ──
+  // â”€â”€ Global Keyboard Shortcuts â”€â”€
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Cmd/Ctrl + K to search
@@ -101,10 +101,10 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
   };
 
   const getRoleLabel = () => {
-    if (isAdmin) return lang === "ar" ? "مدير" : "Admin";
-    if (isReceptionist) return lang === "ar" ? "موظف استقبال" : "Receptionist";
-    if (isDoctor) return lang === "ar" ? "طبيب" : "Doctor";
-    return lang === "ar" ? "مريض" : "Patient";
+    if (isAdmin) return lang === "ar" ? "Ù…Ø¯ÙŠØ±" : "Admin";
+    if (isReceptionist) return lang === "ar" ? "Ù…ÙˆØ¸Ù Ø§Ø³ØªÙ‚Ø¨Ø§Ù„" : "Receptionist";
+    if (isDoctor) return lang === "ar" ? "Ø·Ø¨ÙŠØ¨" : "Doctor";
+    return lang === "ar" ? "Ù…Ø±ÙŠØ¶" : "Patient";
   };
 
   const getRoleColor = () => {
@@ -123,10 +123,10 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
     const diffInDays = Math.floor(diffInHours / 24);
 
     if (lang === "ar") {
-      if (diffInMins < 1) return "الآن";
-      if (diffInMins < 60) return `منذ ${diffInMins} دقيقة`;
-      if (diffInHours < 24) return `منذ ${diffInHours} ساعة`;
-      return `منذ ${diffInDays} أيام`;
+      if (diffInMins < 1) return "Ø§Ù„Ø¢Ù†";
+      if (diffInMins < 60) return `Ù…Ù†Ø° ${diffInMins} Ø¯Ù‚ÙŠÙ‚Ø©`;
+      if (diffInHours < 24) return `Ù…Ù†Ø° ${diffInHours} Ø³Ø§Ø¹Ø©`;
+      return `Ù…Ù†Ø° ${diffInDays} Ø£ÙŠØ§Ù…`;
     }
     if (diffInMins < 1) return "Just now";
     if (diffInMins < 60) return `${diffInMins}m ago`;
@@ -151,7 +151,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
           {title}
         </h1>
 
-        {title !== "Dashboard" && title !== "لوحة التحكم" && (
+        {title !== "Dashboard" && title !== "Ù„ÙˆØ­Ø© Ø§Ù„ØªØ­ÙƒÙ…" && (
           <Link
             to="/dashboard"
             className="hidden sm:flex items-center gap-2 px-3 py-2 bg-primary/5 hover:bg-primary/10 text-primary rounded-xl border border-primary/10 transition-all font-bold text-[10px] uppercase tracking-widest shrink-0"
@@ -161,17 +161,17 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
           </Link>
         )}
 
-        {/* Search — desktop only */}
+        {/* Search â€” desktop only */}
         <div 
           onClick={() => setShowSearch(true)}
           className="hidden lg:flex items-center gap-3 px-5 py-2.5 bg-slate-100/50 border border-outline/10 rounded-2xl text-slate-400 hover:border-primary/20 hover:bg-white transition-all w-72 cursor-text shadow-inner group"
         >
           <Search className="w-4 h-4 group-hover:text-primary transition-colors shrink-0" />
           <span className="text-xs font-bold opacity-60 italic truncate">
-            {lang === "ar" ? "بحث عن مريض أو موعد..." : "Search patients, phone..."}
+            {lang === "ar" ? "Ø¨Ø­Ø« Ø¹Ù† Ù…Ø±ÙŠØ¶ Ø£Ùˆ Ù…ÙˆØ¹Ø¯..." : "Search patients, phone..."}
           </span>
           <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} flex items-center gap-1 opacity-40 shrink-0`}>
-            <span className="text-[10px] font-black bg-white px-2 py-0.5 rounded-lg border border-outline/10 shadow-sm">⌘</span>
+            <span className="text-[10px] font-black bg-white px-2 py-0.5 rounded-lg border border-outline/10 shadow-sm">âŒ˜</span>
             <span className="text-[10px] font-black bg-white px-2 py-0.5 rounded-lg border border-outline/10 shadow-sm">K</span>
           </div>
         </div>
@@ -187,7 +187,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
         <button
           onClick={toggleLang}
           className="flex items-center gap-1.5 px-2.5 sm:px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl lg:rounded-2xl bg-white dark:bg-slate-800 border border-outline hover:border-primary/40 text-slate-600 dark:text-slate-300 hover:text-primary transition-all font-black text-[10px] tracking-widest shadow-sm"
-          title={lang === "en" ? "العربية" : "English"}
+          title={lang === "en" ? "Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©" : "English"}
         >
           <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
           <span>{lang === "en" ? "AR" : "EN"}</span>
@@ -196,13 +196,13 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-white dark:bg-slate-800 border border-outline hover:border-primary/40 text-slate-600 dark:text-slate-300 hover:text-primary transition-all shadow-sm"
-          title={isDark ? (lang === "ar" ? "الوضع المضيء" : "Light Mode") : (lang === "ar" ? "الوضع الليلي" : "Dark Mode")}
+          className="flex items-center justify-center w-8 h-8 rounded-xl lg:rounded-2xl bg-white dark:bg-slate-800 border border-outline hover:border-primary/40 text-slate-600 dark:text-slate-300 hover:text-primary transition-all shadow-sm"
+          title={isDark ? (lang === "ar" ? "Ø§Ù„ÙˆØ¶Ø¹ Ø§Ù„Ù…Ø¶ÙŠØ¡" : "Light Mode") : (lang === "ar" ? "Ø§Ù„ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„ÙŠ" : "Dark Mode")}
         >
           {isDark ? (
-            <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 animate-in zoom-in duration-300" />
+            <Sun className="w-4 h-4 text-amber-500 animate-in zoom-in duration-300" />
           ) : (
-            <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 animate-in zoom-in duration-300" />
+            <Moon className="w-4 h-4 text-slate-400 animate-in zoom-in duration-300" />
           )}
         </button>
 
@@ -217,9 +217,9 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                   : "text-slate-400 bg-white border-outline hover:text-primary hover:border-primary/40"
                   }`}
               >
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-primary text-[9px] sm:text-[10px] font-black text-white flex items-center justify-center rounded-lg ring-2 ring-white shadow-xl animate-pulse">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-[9px] sm:text-[10px] font-black text-white flex items-center justify-center rounded-lg ring-2 ring-white shadow-xl animate-pulse">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -231,11 +231,11 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                   <div className="z-50 animate-in fade-in duration-200 fixed left-3 right-3 top-[72px] sm:top-auto sm:absolute sm:left-auto sm:right-0 sm:mt-4 sm:w-96 bg-surface rounded-[2rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.25)] overflow-hidden border border-outline">
                     <div className="p-5 border-b border-outline flex items-center justify-between bg-surface-alt">
                       <h3 className="font-black text-xs text-on-surface uppercase tracking-widest">
-                        {lang === "ar" ? "الإشعارات" : "Notifications"}
+                        {lang === "ar" ? "Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±Ø§Øª" : "Notifications"}
                       </h3>
                       {unreadCount > 0 && (
                         <span className="text-[10px] font-black text-white bg-primary px-3 py-1 rounded-full shadow-lg shadow-primary/20">
-                          {unreadCount} {lang === "ar" ? "جديد" : "New"}
+                          {unreadCount} {lang === "ar" ? "Ø¬Ø¯ÙŠØ¯" : "New"}
                         </span>
                       )}
                     </div>
@@ -247,7 +247,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                             <Bell className="w-7 h-7 opacity-20" />
                           </div>
                           <p className="text-xs font-black uppercase tracking-widest opacity-60">
-                            {lang === "ar" ? "لا توجد إشعارات" : "Empty Inbox"}
+                            {lang === "ar" ? "Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø´Ø¹Ø§Ø±Ø§Øª" : "Empty Inbox"}
                           </p>
                         </div>
                       ) : (
@@ -272,7 +272,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
                                   className="p-2 bg-surface text-primary rounded-xl border border-outline hover:border-primary/40 shadow-sm transition-all"
-                                  title={lang === "ar" ? "تحديد كمقروء" : "Mark as read"}
+                                  title={lang === "ar" ? "ØªØ­Ø¯ÙŠØ¯ ÙƒÙ…Ù‚Ø±ÙˆØ¡" : "Mark as read"}
                                 >
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
@@ -280,7 +280,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                               <button
                                 onClick={() => handleDelete(notif.id)}
                                 className="p-2 bg-surface text-error rounded-xl border border-outline hover:border-error/40 shadow-sm transition-all"
-                                title={lang === "ar" ? "حذف" : "Delete"}
+                                title={lang === "ar" ? "Ø­Ø°Ù" : "Delete"}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -295,7 +295,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                         onClick={() => setShowNotifications(false)}
                         className="text-[11px] font-black text-slate-400 hover:text-primary transition-all uppercase tracking-[0.2em]"
                       >
-                        {lang === "ar" ? "إغلاق" : "Close"}
+                        {lang === "ar" ? "Ø¥ØºÙ„Ø§Ù‚" : "Close"}
                       </button>
                     </div>
                   </div>
@@ -305,7 +305,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
 
             {/* User Avatar */}
             <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer">
-              {/* Name + Role — hidden on small screens */}
+              {/* Name + Role â€” hidden on small screens */}
               <div className={`${isRtl ? 'text-left' : 'text-right'} hidden md:block`}>
                 <p className="text-sm font-black text-slate-900 dark:text-white leading-none mb-1.5 tracking-tight group-hover:text-primary transition-colors">
                   {user?.fullName || user?.email}
@@ -315,7 +315,7 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
                 </span>
               </div>
               <div className="relative">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-white border border-outline group-hover:border-primary/30 flex items-center justify-center text-primary shadow-xl shadow-slate-200/20 transition-all duration-500 overflow-hidden">
+                <div className="w-8 h-8 rounded-xl lg:rounded-2xl bg-white border border-outline group-hover:border-primary/30 flex items-center justify-center text-primary shadow-xl shadow-slate-200/20 transition-all duration-500 overflow-hidden">
                   {user?.fullName ? (
                     <span className="text-lg font-black">{user.fullName.charAt(0).toUpperCase()}</span>
                   ) : (

@@ -28,9 +28,7 @@ const PatientBackgroundSection = ({ visitData, setVisitData }) => (
                         value={visitData[field]}
                         onChange={(e) => setVisitData({ ...visitData, [field]: e.target.value })}
                         placeholder={placeholder}
-                        className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
-                            focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all
-                            placeholder:text-muted-foreground/40"
+                        className="w-full rounded-lg border-0 !border-transparent bg-surface-alt px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:ring-0 focus:outline-none focus:border-transparent transition-all shadow-none placeholder:text-muted-foreground/40"
                     />
                 </div>
             ))}

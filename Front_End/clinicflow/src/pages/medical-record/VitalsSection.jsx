@@ -30,7 +30,7 @@ const VitalsSection = ({ visitData, setVisitData }) => {
                         key={v.field}
                         className={`vital-box transition-all duration-300 relative ${isVitalDanger(v.field, visitData[v.field])
                             ? "bg-red-50 border-red-200 ring-4 ring-red-500/5 shadow-[0_0_20px_rgba(239,68,68,0.1)]"
-                            : "bg-surface-alt border-outline"
+                            : "bg-surface-alt border-0 !border-transparent shadow-none ring-0"
                             }`}
                     >
                         <label

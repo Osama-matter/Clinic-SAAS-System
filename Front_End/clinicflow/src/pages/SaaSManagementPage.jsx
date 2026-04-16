@@ -26,6 +26,8 @@ import {
 import { useLanguage } from "../context/LanguageContext";
 import Modal from "../components/Modal";
 import { clinicService, clinicSubscriptionService, planService } from "../services/api";
+import saasAdminService from "../services/saasAdminService";
+import { motion, AnimatePresence } from "framer-motion";
 
 const emptyPlanForm = {
   name: "",
@@ -58,8 +60,19 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
   const [submitting, setSubmitting] = useState(false);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [clinicModalOpen, setClinicModalOpen] = useState(false);
+  const [subModalOpen, setSubModalOpen] = useState(false);
+  const [saasStats, setSaasStats] = useState(null);
+  const [revenueAnalytics, setRevenueAnalytics] = useState([]);
+  const [usageMetrics, setUsageMetrics] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [editingPlan, setEditingPlan] = useState(null);
   const [editingClinic, setEditingClinic] = useState(null);
+  const [managedSub, setManagedSub] = useState(null);
+  const [subForm, setSubForm] = useState({
+    planId: "",
+    status: 1,
+    expiresAt: "",
+  });
   const [form, setForm] = useState(emptyPlanForm);
   const [clinicForm, setClinicForm] = useState({
     name: "",
@@ -130,8 +143,21 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
       );
 
       setSubscriptionsByClinic(Object.fromEntries(subscriptionEntries));
+
+      // ─── SaaS Admin Specific Data ───────────────────
+      const [statsRes, analyticsRes, usageRes, transRes] = await Promise.all([
+        saasAdminService.getStats(),
+        saasAdminService.getRevenueAnalytics(),
+        saasAdminService.getUsageMetrics(),
+        saasAdminService.getTransactions(),
+      ]);
+
+      setSaasStats(statsRes.data);
+      setRevenueAnalytics(analyticsRes.data || []);
+      setUsageMetrics(usageRes.data || []);
+      setTransactions(transRes.data || []);
     } catch (err) {
-      toast.error(isAr ? "فشل تحميل البيانات." : "Failed to load management data.");
+      toast.error(isAr ? "فشل تحميل البيانات الإدارية." : "Failed to load administrative data.");
     } finally {
       setLoading(false);
     }
@@ -304,6 +330,37 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
     }
   };
 
+  const openSubscriptionModal = (clinic, sub) => {
+    setManagedSub({ ...sub, clinicName: clinic.name });
+    setSubForm({
+      planId: sub.planId,
+      status: sub.status,
+      expiresAt: sub.expiresAt ? sub.expiresAt.split("T")[0] : "",
+    });
+    setSubModalOpen(true);
+  };
+
+  const saveSubscriptionOverride = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const toastId = toast.loading(isAr ? "جارٍ حفظ التعديلات..." : "Saving overrides...");
+    try {
+      await saasAdminService.updateSubscription({
+        subscriptionId: managedSub.id,
+        planId: subForm.planId,
+        status: Number(subForm.status),
+        expiresAt: new Date(subForm.expiresAt).toISOString(),
+      });
+      toast.success(isAr ? "تم تحديث الاشتراك بنجاح." : "Subscription updated successfully.", { id: toastId });
+      setSubModalOpen(false);
+      await fetchData();
+    } catch {
+      toast.error(isAr ? "فشل تحديث الاشتراك." : "Failed to update subscription.", { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ─── Shared input class ────────────────────────────────────────────────────
   const inputCls =
     "w-full rounded-xl border border-slate-700/60 bg-slate-800/60 px-4 py-3.5 text-sm font-medium text-white placeholder-slate-500 outline-none transition-all duration-200 focus:border-primary/70 focus:ring-2 focus:ring-primary/20 focus:bg-slate-800";
@@ -388,19 +445,50 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
             </p>
 
             {/* Quick stats strip */}
-            <div className="flex flex-wrap gap-4 pt-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
               {[
-                { label: isAr ? "باقات" : "Plans", value: plans.length, color: "text-blue-400" },
-                { label: isAr ? "عيادات" : "Clinics", value: clinics.length, color: "text-emerald-400" },
-                {
-                  label: isAr ? "نشطة" : "Active",
-                  value: clinicStats.Active,
+                { 
+                  label: isAr ? "إجمالي العيادات" : "Total Clinics", 
+                  value: saasStats?.totalClinics ?? 0, 
+                  color: "text-blue-400", 
+                  icon: <Building2 className="h-4 w-4" />,
+                  trend: saasStats?.newClinicsThisMonth > 0 ? `+${saasStats.newClinicsThisMonth}` : null
+                },
+                { 
+                  label: isAr ? "إجمالي الدخل" : "All-time Revenue", 
+                   value: `${saasStats?.totalRevenue?.toLocaleString() ?? 0} EGP`, 
+                  color: "text-emerald-400",
+                  icon: <BadgeDollarSign className="h-4 w-4" />
+                },
+                { 
+                  label: isAr ? "الدخل الشهري" : "Active MRR", 
+                  value: `${saasStats?.monthlyRecurringRevenue?.toLocaleString() ?? 0} EGP`, 
                   color: "text-primary",
+                  icon: <TrendingUp className="h-4 w-4" />
+                },
+                { 
+                  label: isAr ? "ينتهي قريباً" : "Expiring Soon", 
+                  value: saasStats?.expiringSoonCount ?? 0, 
+                  color: "text-rose-400",
+                  icon: <AlertCircle className="h-4 w-4" />,
+                  alert: saasStats?.expiringSoonCount > 0
                 },
               ].map((s) => (
-                <div key={s.label} className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 ring-1 ring-white/10">
-                  <span className={`text-xl font-black ${s.color}`}>{s.value}</span>
-                  <span className="text-xs font-semibold text-slate-400">{s.label}</span>
+                <div key={s.label} className="relative group bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md transition-all hover:bg-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`p-2 rounded-xl bg-white/5 ${s.color}`}>
+                      {s.icon}
+                    </div>
+                    {s.trend && (
+                      <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
+                        {s.trend}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">{s.label}</span>
+                    <span className={`block text-xl font-black truncate ${s.color}`}>{s.value}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -445,6 +533,16 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
             icon: <Building2 className="h-4 w-4 shrink-0" />,
             count: clinics.length,
           },
+          {
+            key: "analytics",
+            label: isAr ? "التحليلات" : "Analytics",
+            icon: <TrendingUp className="h-4 w-4 shrink-0" />,
+          },
+          {
+            key: "payments",
+            label: isAr ? "المدفوعات" : "Payments",
+            icon: <CreditCard className="h-4 w-4 shrink-0" />,
+          },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -457,19 +555,21 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
           >
             {tab.icon}
             {tab.label}
-            <span
-              className={`rounded-full px-2 py-0.5 text-[9px] font-black ${
-                activeTab === tab.key
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-700 text-slate-400"
-              }`}
-            >
-              {tab.count}
-            </span>
+            {tab.count !== undefined && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[9px] font-black ${
+                  activeTab === tab.key
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-700 text-slate-400"
+                }`}
+              >
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
-
+      
       {/* ═══ PLANS TAB ════════════════════════════════════════════════════════ */}
       {activeTab === "plans" && (
         <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-2 xl:grid-cols-3">
@@ -606,6 +706,137 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
         </div>
       )}
 
+      {/* ═══ ANALYTICS TAB ═════════════════════════════════════════════════════ */}
+      {activeTab === "analytics" && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Revenue Growth Chart (CSS Based) */}
+            <div className="rounded-3xl bg-slate-900/50 p-8 ring-1 ring-white/10 backdrop-blur-xl">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-xl font-black text-white">{isAr ? "نمو الإيرادات" : "Revenue Growth"}</h3>
+                  <p className="text-xs text-slate-500">{isAr ? "الإيرادات المحققة شهرياً" : "Monthly generated revenue"}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+              </div>
+
+              <div className="flex items-end justify-between gap-2 h-64 px-2">
+                {revenueAnalytics.slice(-6).map((point, idx) => {
+                  const maxRevenue = Math.max(...revenueAnalytics.map(p => p.revenue), 1);
+                  const height = (point.revenue / maxRevenue) * 100;
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-4 group">
+                      <div className="relative w-full flex items-end justify-center">
+                        <div 
+                          className="w-full sm:w-12 bg-gradient-to-t from-primary to-blue-400 rounded-t-xl transition-all duration-700 group-hover:from-primary/80 group-hover:to-blue-300"
+                          style={{ height: `${Math.max(height, 5)}%` }}
+                        >
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-black px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {point.revenue.toLocaleString()} EGP
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 rotate-45 sm:rotate-0">{point.period}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Insights */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {[
+                { label: isAr ? "متوسط الدخل لكل عيادة" : "Avg Revenue Per Clinic", value: `${Math.round(saasStats?.totalRevenue / (saasStats?.totalClinics || 1)).toLocaleString()} EGP`, icon: <BadgeDollarSign className="h-5 w-5" />, color: "text-emerald-400" },
+                { label: isAr ? "معدل التحويل" : "Active Rate", value: `${Math.round((saasStats?.activeSubscriptions / (saasStats?.totalClinics || 1)) * 100)}%`, icon: <CheckCircle2 className="h-5 w-5" />, color: "text-primary" },
+                { label: isAr ? "العيادات الجديدة (30 يوم)" : "New Signup Velocity", value: saasStats?.newClinicsThisMonth || 0, icon: <RefreshCw className="h-5 w-5" />, color: "text-blue-400" },
+                { label: isAr ? "تنبيهات الانتهاء" : "Pending Churn Alert", value: saasStats?.expiringSoonCount || 0, icon: <AlertCircle className="h-5 w-5" />, color: "text-rose-400" },
+              ].map((insight, idx) => (
+                <div key={idx} className="p-6 rounded-3xl bg-slate-900 border border-white/5 shadow-xl transition-all hover:border-white/20">
+                  <div className={`p-3 w-fit rounded-2xl bg-white/5 mb-4 ${insight.color}`}>
+                    {insight.icon}
+                  </div>
+                  <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{insight.label}</span>
+                  <span className="block text-2xl font-black text-white">{insight.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PAYMENTS TAB ══════════════════════════════════════════════════════ */}
+      {activeTab === "payments" && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+           <div className="overflow-hidden rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
+            <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+              <h3 className="text-lg font-black text-white">{isAr ? "حركات الدفع" : "Transaction History"}</h3>
+              <div className="flex items-center gap-2">
+                 <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-white/5 bg-slate-800/20">
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{isAr ? "العيادة" : "Clinic"}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{isAr ? "المبلغ" : "Amount"}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{isAr ? "الوسيلة" : "Method"}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{isAr ? "الحالة" : "Status"}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{isAr ? "التاريخ" : "Date"}</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{isAr ? "المرجع" : "Ref"}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="block font-black text-white">{tx.clinicName}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-black text-emerald-400">{tx.amount.toLocaleString()} {tx.currency}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <CreditCard className="h-3 w-3" />
+                          {tx.paymentMethod}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                          tx.status === 2 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                        }`}>
+                          <div className={`h-1 w-1 rounded-full ${tx.status === 2 ? "bg-emerald-400" : "bg-rose-400"}`} />
+                          {tx.status === 2 ? (isAr ? "ناجح" : "Success") : (isAr ? "فشل" : "Failed")}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <code className="text-[10px] text-slate-600 font-mono">{tx.paymentRef}</code>
+                      </td>
+                    </tr>
+                  ))}
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center gap-2 opacity-30">
+                          <CreditCard className="h-8 w-8" />
+                          <p className="text-sm font-bold">{isAr ? "لا توجد معاملات حالية" : "No transactions found"}</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ CLINICS TAB ══════════════════════════════════════════════════════ */}
       {activeTab === "clinics" && (
         <div className="space-y-8 sm:space-y-10">
@@ -732,25 +963,54 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                   </div>
 
                   {/* Data grid */}
-                  <div className="relative grid grid-cols-2 gap-3 mb-6">
-                    <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/5 transition-colors group-hover:bg-white/8">
-                      <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                        <Shield className="h-3 w-3 text-primary" />
-                        {isAr ? "الباقة" : "Plan"}
-                      </p>
-                      <p className="text-base font-black text-white truncate">
-                        {subscription?.planName || (isAr ? "غير محدد" : "None")}
-                      </p>
+                  <div className="relative space-y-4 mb-6">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/5 transition-colors group-hover:bg-white/8">
+                        <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                          <Shield className="h-3 w-3 text-primary" />
+                          {isAr ? "الباقة" : "Plan"}
+                        </p>
+                        <p className="text-base font-black text-white truncate">
+                          {subscription?.planName || (isAr ? "غير محدد" : "None")}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/5 transition-colors group-hover:bg-white/8">
+                        <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                          <CreditCard className="h-3 w-3 text-emerald-400" />
+                          {isAr ? "المدفوع" : "Paid"}
+                        </p>
+                        <p className="text-base font-black text-emerald-400">
+                          {subscription?.paidAmount ?? 0}{" "}
+                          <span className="text-xs font-bold text-slate-500">EGP</span>
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/5 transition-colors group-hover:bg-white/8">
-                      <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                        <CreditCard className="h-3 w-3 text-emerald-400" />
-                        {isAr ? "المدفوع" : "Paid"}
-                      </p>
-                      <p className="text-base font-black text-emerald-400">
-                        {subscription?.paidAmount ?? 0}{" "}
-                        <span className="text-xs font-bold text-slate-500">EGP</span>
-                      </p>
+
+                    {/* Usage Bars */}
+                    <div className="space-y-3 pt-2">
+                      {[
+                        { label: isAr ? "دكاترة" : "Doctors", current: usageMetrics.find(u => u.clinicId === clinic.id)?.doctorCount, max: usageMetrics.find(u => u.clinicId === clinic.id)?.maxDoctors, color: "bg-primary" },
+                        { label: isAr ? "مرضى" : "Patients", current: usageMetrics.find(u => u.clinicId === clinic.id)?.patientCount, max: usageMetrics.find(u => u.clinicId === clinic.id)?.maxPatients, color: "bg-emerald-400" },
+                        { label: isAr ? "حجوزات" : "Bookings", current: usageMetrics.find(u => u.clinicId === clinic.id)?.appointmentCount, max: usageMetrics.find(u => u.clinicId === clinic.id)?.maxBookings, color: "bg-amber-400" },
+                      ].filter(u => u.max != null).map((item, id) => {
+                        const percent = Math.min((item.current / item.max) * 100, 100);
+                        return (
+                          <div key={id} className="space-y-1">
+                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                              <span className="text-slate-500">{item.label}</span>
+                              <span className="text-white">{item.current} / {item.max}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${percent}%` }}
+                                transition={{ duration: 1, delay: 0.2 }}
+                                className={`h-full ${item.color} rounded-full`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -772,6 +1032,14 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2">
+                       <button
+                        onClick={() => openSubscriptionModal(clinic, subscription)}
+                        disabled={!subscription}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20 transition-all hover:bg-amber-500 hover:text-white hover:ring-0 hover:shadow-lg hover:shadow-amber-500/30 active:scale-[0.95] disabled:opacity-30"
+                        title={isAr ? "إدارة الاشتراك" : "Manage Subscription"}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => openClinicModal(clinic)}
                         className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-slate-400 ring-1 ring-white/10 transition-all hover:bg-primary hover:text-white hover:ring-0 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.95]"
@@ -1022,6 +1290,88 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                 <Save className="h-4 w-4" />
               )}
               {isAr ? "حفظ" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ═══ SUBSCRIPTION OVERRIDE MODAL ═══════════════════════════════════════ */}
+      <Modal
+        open={subModalOpen}
+        onClose={() => setSubModalOpen(false)}
+        title={isAr ? `إدارة اشتراك: ${managedSub?.clinicName}` : `Manage Subscription: ${managedSub?.clinicName}`}
+      >
+        <form onSubmit={saveSubscriptionOverride} className="space-y-6">
+           <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "الباقة" : "Subscription Plan"}
+              </label>
+              <select
+                value={subForm.planId}
+                onChange={(e) => setSubForm(p => ({ ...p, planId: e.target.value }))}
+                className={inputCls}
+                required
+              >
+                {plans.map(p => (
+                   <option key={p.id} value={p.id} className="bg-slate-900">{p.name} - {p.price} EGP</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {isAr ? "الحالة" : "Status"}
+                </label>
+                <select
+                  value={subForm.status}
+                  onChange={(e) => setSubForm(p => ({ ...p, status: e.target.value }))}
+                  className={inputCls}
+                  required
+                >
+                  <option value={1} className="bg-slate-900">{isAr ? "تجريبي" : "Trial"}</option>
+                  <option value={2} className="bg-slate-900">{isAr ? "نشط" : "Active"}</option>
+                  <option value={3} className="bg-slate-900">{isAr ? "منتهي" : "Expired"}</option>
+                  <option value={4} className="bg-slate-900">{isAr ? "غير نشط" : "Inactive"}</option>
+                  <option value={5} className="bg-slate-900">{isAr ? "انتظار الدفع" : "Pending Payment"}</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {isAr ? "تاريخ الانتهاء" : "Expiry Date"}
+                </label>
+                <input
+                  type="date"
+                  value={subForm.expiresAt}
+                  onChange={(e) => setSubForm(p => ({ ...p, expiresAt: e.target.value }))}
+                  className={inputCls}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 border-t border-white/10 pt-6">
+            <button
+              type="button"
+              onClick={() => setSubModalOpen(false)}
+              className="flex-1 rounded-xl bg-slate-800 py-3.5 text-xs font-black uppercase tracking-widest text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+            >
+              {isAr ? "إلغاء" : "Cancel"}
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-400 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-amber-500/30 transition-all hover:opacity-90 disabled:opacity-40"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isAr ? "حفظ التعديلات" : "Save Overrides"}
             </button>
           </div>
         </form>

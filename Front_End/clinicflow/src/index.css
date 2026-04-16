@@ -35,6 +35,7 @@
   --on-surface: #1A2535;        /* Near-black, slight blue tone for medical context */
   --on-surface-variant: #5A6B80; /* Secondary labels, metadata, timestamps */
   --outline: #C8D0DA;           /* Input borders, card dividers */
+  --border-color-strong: #9AA6B2; /* Stronger borders for overlays/dropdowns */
 
   /* ─── Clinical Status Colors ─────────────────────────────────────────────── */
   /* Muted, accessible — never screaming */
@@ -73,6 +74,7 @@
   --on-surface: #E2E8F0;        /* Soft off-white */
   --on-surface-variant: #8FA3B8; /* Secondary labels — muted but legible */
   --outline: #3A4F65;
+  --border-color-strong: #4B6278;
 
   --success: #4CAF7D;
   --warning: #D4A017;

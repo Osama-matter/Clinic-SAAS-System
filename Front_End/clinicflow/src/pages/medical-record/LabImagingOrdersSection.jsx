@@ -11,7 +11,7 @@ const LabImagingOrdersSection = ({
 }) => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-6 border-t border-border/30">
         {/* Lab Orders */}
-        <div>
+        <div className="relative z-50">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Beaker className="h-4 w-4 text-emerald-400" />
@@ -50,7 +50,7 @@ const LabImagingOrdersSection = ({
         </div>
 
         {/* Imaging Orders */}
-        <div>
+        <div className="relative z-40">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4 text-info" />
@@ -82,17 +82,13 @@ const LabImagingOrdersSection = ({
                                 type="text"
                                 placeholder="Type (e.g. MRI)"
                                 value={img.imagingType}
-                                onChange={(e) => updateImaging(index, "imagingType", e.target.value)}
-                                className="w-1/2 rounded-md border border-border/30 bg-card/50 px-2.5 py-1.5 text-sm text-foreground outline-none
-                                    focus:border-primary/50 transition-all"
+                                className="w-1/2 rounded-md border-0 !border-transparent bg-surface-alt px-2.5 py-1.5 text-sm text-foreground outline-none focus:ring-0 focus:outline-none transition-all shadow-none"
                             />
                             <input
                                 type="text"
                                 placeholder="Body Part"
                                 value={img.bodyPart}
-                                onChange={(e) => updateImaging(index, "bodyPart", e.target.value)}
-                                className="w-1/2 rounded-md border border-border/30 bg-card/50 px-2.5 py-1.5 text-sm text-foreground outline-none
-                                    focus:border-primary/50 transition-all"
+                                className="w-1/2 rounded-md border-0 !border-transparent bg-surface-alt px-2.5 py-1.5 text-sm text-foreground outline-none focus:ring-0 focus:outline-none transition-all shadow-none"
                             />
                         </div>
                         <label className="flex items-center justify-center gap-2 w-full cursor-pointer rounded-lg border border-dashed border-border/30

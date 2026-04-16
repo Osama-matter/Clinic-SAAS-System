@@ -5,9 +5,11 @@ const ThemeContext = createContext();
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     // Check local storage or system preference
-    const savedTheme = localStorage.getItem('clinicflow_theme');
-    if (savedTheme) return savedTheme;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const savedTheme = localStorage.getItem('cf-theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
+    const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    localStorage.setItem('cf-theme', system);
+    return system;
   });
 
   useEffect(() => {
@@ -17,7 +19,7 @@ export const ThemeProvider = ({ children }) => {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('clinicflow_theme', theme);
+    localStorage.setItem('cf-theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {

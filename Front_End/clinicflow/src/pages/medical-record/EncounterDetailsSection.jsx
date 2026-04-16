@@ -19,8 +19,7 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode, o
                 <select
                     value={visitData.doctorId}
                     onChange={(e) => setVisitData({ ...visitData, doctorId: e.target.value })}
-                    className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
-                        focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
+                    className="w-full rounded-lg border-0 !border-transparent bg-surface-alt px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:ring-0 focus:outline-none focus:border-transparent transition-all shadow-none"
                 >
                     <option value="">-- Select Doctor --</option>
                     {doctors.map((d) => (
@@ -38,8 +37,7 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode, o
                 <select
                     value={visitData.visitType}
                     onChange={(e) => setVisitData({ ...visitData, visitType: parseInt(e.target.value) })}
-                    className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
-                        focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
+                    className="w-full rounded-lg border-0 !border-transparent bg-surface-alt px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:ring-0 focus:outline-none focus:border-transparent transition-all shadow-none"
                 >
                     <option value={1}>Initial Consultation</option>
                     <option value={2}>Follow-Up</option>
@@ -50,14 +48,13 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode, o
 
             <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Date &amp; Time
+                    Date & Time
                 </label>
                 <input
                     type="datetime-local"
                     value={visitData.visitDate}
                     onChange={(e) => setVisitData({ ...visitData, visitDate: e.target.value })}
-                    className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm font-medium text-foreground outline-none
-                        focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
+                    className="w-full rounded-lg border-0 !border-transparent bg-surface-alt px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:ring-0 focus:outline-none focus:border-transparent transition-all shadow-none"
                 />
             </div>
         </div>
@@ -88,9 +85,7 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode, o
                 value={visitData.symptoms}
                 onChange={(e) => setVisitData({ ...visitData, symptoms: e.target.value })}
                 placeholder="Patient's primary symptoms or reason for visit..."
-                className="w-full rounded-lg border border-border/50 bg-secondary/50 px-3 py-2.5 text-sm text-foreground outline-none
-                    focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all resize-none
-                    placeholder:text-muted-foreground/40"
+                className="w-full rounded-lg border-0 !border-transparent bg-surface-alt px-3 py-2.5 text-sm text-foreground outline-none shadow-none focus:ring-0 focus:outline-none focus:border-transparent transition-all resize-none placeholder:text-muted-foreground/40"
             />
         </div>
     </div>

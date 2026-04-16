@@ -58,15 +58,16 @@ export function useMedicalForm({ patient, visits, doctors }) {
     }, [visitData.weight, visitData.height]);
  
     // ── Auto-save draft ──
-    useEffect(() => {
-        if (!patient?.id) return;
-        const timer = setTimeout(() => {
-            if (formHasUnsavedData()) {
-                localStorage.setItem(`clinicflow_draft_${patient.id}`, JSON.stringify(visitData));
-            }
-        }, 3000); // Debounce 3s
-        return () => clearTimeout(timer);
-    }, [visitData, patient?.id, formHasUnsavedData]);
+      useEffect(() => {
+          if (!patient?.id) return;
+          const timer = setTimeout(() => {
+              if (formHasUnsavedData()) {
+                  localStorage.setItem(`clinicflow_draft_${patient.id}`, JSON.stringify(visitData));
+                  localStorage.setItem(`clinicflow_draft_ts_${patient.id}`, String(Date.now()));
+              }
+          }, 3000); // Debounce 3s
+          return () => clearTimeout(timer);
+      }, [visitData, patient?.id, formHasUnsavedData]);
 
     const loadDraft = useCallback(() => {
         if (!patient?.id) return;
@@ -84,11 +85,12 @@ export function useMedicalForm({ patient, visits, doctors }) {
         return false;
     }, [patient?.id]);
 
-    const clearDraft = useCallback(() => {
-        if (patient?.id) {
-            localStorage.removeItem(`clinicflow_draft_${patient.id}`);
-        }
-    }, [patient?.id]);
+     const clearDraft = useCallback(() => {
+         if (patient?.id) {
+             localStorage.removeItem(`clinicflow_draft_${patient.id}`);
+             localStorage.removeItem(`clinicflow_draft_ts_${patient.id}`);
+         }
+     }, [patient?.id]);
 
 
 
@@ -109,15 +111,22 @@ export function useMedicalForm({ patient, visits, doctors }) {
     }, [patient]);
 
     // ── Carry-forward from latest visit ──
-    const carryForward = useCallback(async () => {
+    const carryForward = useCallback(async (visitId) => {
         if (!visits.length) {
             toast.error("No previous visits found to carry forward.");
             return;
         }
         const latest = sortVisitsByDate(visits)[0];
+        const chosen = visitId ? visits.find((x) => x.id === visitId) : null;
+        const targetId = chosen?.id || latest?.id;
+
+        if (!targetId) {
+            toast.error("No previous visits found to carry forward.");
+            return;
+        }
         setLoadingChart(true);
         try {
-            const res = await visitService.getById(latest.id);
+            const res = await visitService.getById(targetId);
             const v = res.data;
             setVisitData((prev) => ({
                 ...prev,

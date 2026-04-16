@@ -59,8 +59,7 @@ const TestResultsSection = ({ visitData, addResultRow, updateResult, removeResul
                                         placeholder={placeholder}
                                         value={r[field]}
                                         onChange={(e) => updateResult(index, field, e.target.value)}
-                                        className="w-full rounded-lg border border-border/30 bg-card/60 px-3 py-2 text-sm text-foreground outline-none
-                                            focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all resize-none"
+                                        className="w-full rounded-lg border-0 !border-transparent bg-surface-alt px-3 py-2 text-sm text-foreground outline-none focus:ring-0 focus:outline-none transition-all resize-none shadow-none"
                                     />
                                 </div>
                             ))}

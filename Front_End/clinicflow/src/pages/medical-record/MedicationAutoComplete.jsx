@@ -64,7 +64,7 @@ const MedicationAutoComplete = ({ value, onChange, placeholder = "Search clinica
                         onChange(e.target.value);
                     }}
                     onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-                    className="w-full p-3.5 pl-11 pr-10 border border-outline rounded-2xl bg-surface text-on-surface text-sm font-black outline-none focus:border-primary hover:border-primary/30 focus:ring-4 focus:ring-primary/5 transition-all shadow-inner placeholder:text-muted-foreground/30"
+                    className="w-full p-3.5 pl-11 pr-10 border-0 !border-transparent rounded-xl bg-surface-alt text-on-surface text-sm font-black outline-none focus:ring-0 focus:outline-none transition-all shadow-none placeholder:text-muted-foreground/30"
                 />
                 <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isOpen ? "text-primary" : "text-muted-foreground/30"}`} />
                 {isLoading && (

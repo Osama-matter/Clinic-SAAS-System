@@ -31,12 +31,12 @@ const SYSTEMS = [
 ];
 
 const COLOR_MAP = {
-    blue:    { bar: "bg-blue-500",    bg: "bg-blue-50",    border: "border-blue-200",   text: "text-blue-700",   glow: "bg-blue-500"    },
-    rose:    { bar: "bg-rose-500",    bg: "bg-rose-50",    border: "border-rose-200",   text: "text-rose-700",   glow: "bg-rose-500"    },
-    purple:  { bar: "bg-purple-500",  bg: "bg-purple-50",  border: "border-purple-200", text: "text-purple-700", glow: "bg-purple-500"  },
-    orange:  { bar: "bg-orange-500",  bg: "bg-orange-50",  border: "border-orange-200", text: "text-orange-700", glow: "bg-orange-500"  },
-    amber:   { bar: "bg-amber-500",   bg: "bg-amber-50",   border: "border-amber-200",  text: "text-amber-700",  glow: "bg-amber-500"   },
-    emerald: { bar: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200",text: "text-emerald-700",glow: "bg-emerald-500" },
+    blue: { bar: "bg-blue-500", bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", glow: "bg-blue-500" },
+    rose: { bar: "bg-rose-500", bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700", glow: "bg-rose-500" },
+    purple: { bar: "bg-purple-500", bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", glow: "bg-purple-500" },
+    orange: { bar: "bg-orange-500", bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", glow: "bg-orange-500" },
+    amber: { bar: "bg-amber-500", bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", glow: "bg-amber-500" },
+    emerald: { bar: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", glow: "bg-emerald-500" },
 };
 
 // ── helper: هل فيه أي قيمة مكتوبة في الـ system ده؟
@@ -104,7 +104,7 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
                         onChange={(e) =>
                             setVisitData({ ...visitData, generalExamination: e.target.value })
                         }
-                        className="w-full p-4 border border-outline rounded-xl bg-surface-alt outline-none focus:border-primary font-medium shadow-inner"
+                        className="w-full p-4 border-none rounded-xl bg-surface-alt outline-none focus:ring-2 focus:ring-primary/20 font-medium shadow-inner"
                         placeholder="Overall clinical state, orientation, etc."
                     />
                 </div>
@@ -118,7 +118,7 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
                         onChange={(e) =>
                             setVisitData({ ...visitData, localExamination: e.target.value })
                         }
-                        className="w-full p-4 border border-outline rounded-xl bg-surface-alt outline-none focus:border-primary font-medium shadow-inner"
+                        className="w-full p-4 border-none rounded-xl bg-surface-alt outline-none focus:ring-2 focus:ring-primary/20 font-medium shadow-inner"
                         placeholder="Any system findings not covered above..."
                     />
                 </div>
@@ -162,13 +162,12 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
                     return (
                         <div
                             key={sys.key}
-                            className={`border rounded-2xl overflow-hidden transition-all duration-200 ${
-                                isOpen
+                            className={`border rounded-2xl overflow-hidden transition-all duration-200 ${isOpen
                                     ? `${c.border} shadow-sm`
                                     : hasData
-                                    ? `${c.border} bg-surface`
-                                    : "border-outline bg-surface"
-                            }`}
+                                        ? `${c.border} bg-surface`
+                                        : "border-outline bg-surface"
+                                }`}
                         >
                             {/* ── Accordion Header / Toggle ── */}
                             <button
@@ -192,9 +191,8 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
                                     )}
                                 </div>
                                 <ChevronDown
-                                    className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${
-                                        isOpen ? "rotate-180" : ""
-                                    }`}
+                                    className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+                                        }`}
                                 />
                             </button>
 
@@ -217,7 +215,7 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
                                                             [`${sys.key}_${f}`]: e.target.value,
                                                         })
                                                     }
-                                                    className="w-full p-3 border border-outline rounded-xl bg-surface text-sm font-bold text-on-surface outline-none focus:border-primary transition-all hover:border-primary/30 shadow-inner focus:shadow-none"
+                                                    className="w-full p-3 border-none rounded-xl bg-surface-alt text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
                                                     placeholder={
                                                         sys.placeholders?.[f] || "Findings..."
                                                     }

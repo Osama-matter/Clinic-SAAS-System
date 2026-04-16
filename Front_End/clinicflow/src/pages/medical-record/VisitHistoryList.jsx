@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
     Activity, AlertCircle, Beaker, ChevronDown, ChevronRight,
     Clock, Edit, FileText, ImageIcon, Loader2, MessageSquare,
-    Pill, Stethoscope, Trash2, User, CheckCircle2, CalendarCheck, Printer
+    Pill, Stethoscope, Trash2, User, CheckCircle2, CalendarCheck, Printer, Send, Copy
 } from "lucide-react";
 import { useInfinitePagination } from "../../hooks/useInfinitePagination";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const VISIT_TYPE_CONFIG = {
     1: { label: "Initial Visit",  bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30" },
@@ -28,7 +28,7 @@ function formatVisitDate(rawDate) {
     };
 }
 
-// ─── Timeline Section Wrapper ─────────────────────────────────────────────────
+// â”€â”€â”€ Timeline Section Wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TimelineSection({ icon: Icon, iconColor, label, children, isEmpty, emptyText }) {
     if (isEmpty && !emptyText) return null;
@@ -47,12 +47,12 @@ function TimelineSection({ icon: Icon, iconColor, label, children, isEmpty, empt
     );
 }
 
-// ─── Individual Section Renders ───────────────────────────────────────────────
+// â”€â”€â”€ Individual Section Renders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ComplaintSection({ symptoms }) {
     return (
         <TimelineSection icon={MessageSquare} iconColor="text-amber-500" label="Chief Complaint">
-            <p className="text-sm text-slate-200 leading-relaxed italic">
+            <p className="text-sm text-on-surface leading-relaxed italic">
                 {symptoms ? `"${symptoms}"` : <span className="not-italic text-slate-500">No complaint recorded</span>}
             </p>
         </TimelineSection>
@@ -64,8 +64,8 @@ function VitalsSection({ vitals }) {
     const items = [
         { label: "BP",     value: vitals.bloodPressure, unit: "mmHg", danger: false },
         { label: "HR",     value: vitals.heartRate,     unit: "bpm",  danger: vitals.heartRate > 100 || vitals.heartRate < 50 },
-        { label: "Temp",   value: vitals.temperature,   unit: "°C",   danger: vitals.temperature > 38.5 },
-        { label: "O₂",     value: vitals.po2,           unit: "%",    danger: vitals.po2 < 94 },
+        { label: "Temp",   value: vitals.temperature,   unit: "Â°C",   danger: vitals.temperature > 38.5 },
+        { label: "Oâ‚‚",     value: vitals.po2,           unit: "%",    danger: vitals.po2 < 94 },
         { label: "RBS",    value: vitals.rbs,           unit: "mg/dL",danger: vitals.rbs > 200 },
         { label: "BMI",    value: vitals.bmi,           unit: "",     danger: vitals.bmi > 30 || vitals.bmi < 18.5 },
     ].filter(v => v.value !== null && v.value !== undefined && v.value !== "");
@@ -84,7 +84,7 @@ function VitalsSection({ vitals }) {
                         <span className="text-[9px] font-black uppercase opacity-60">{v.label}</span>
                         <span>{v.value}</span>
                         {v.unit && <span className="text-[9px] opacity-50">{v.unit}</span>}
-                        {v.danger && <span className="text-[8px] text-red-400 font-black">⚠</span>}
+                        {v.danger && <span className="text-[8px] text-red-400 font-black">âš </span>}
                     </div>
                 ))}
             </div>
@@ -94,20 +94,95 @@ function VitalsSection({ vitals }) {
 
 function DiagnosisSection({ diagnoses }) {
     const hasDx = diagnoses?.length > 0;
+    const [showAll, setShowAll] = useState(false);
+
+    const normalized = useMemo(
+        () =>
+            (diagnoses || [])
+                .filter((d) => d?.icd10Code?.trim() || d?.description?.trim())
+                .map((d) => ({
+                    icd10Code: (d.icd10Code || "").trim(),
+                    description: (d.description || "").trim(),
+                })),
+        [diagnoses]
+    );
+
+    const visible = showAll ? normalized : normalized.slice(0, 3);
+    const hiddenCount = Math.max(0, normalized.length - 3);
+
+    const copyCode = async (code) => {
+        const text = (code || "").trim();
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch {
+            // best-effort; ignore
+        }
+    };
+
     return (
         <TimelineSection icon={CheckCircle2} iconColor="text-violet-500" label="Diagnosis"
             isEmpty={!hasDx} emptyText="No diagnosis recorded">
-            <div className="space-y-1">
-                {diagnoses?.map((d, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                        {d.icd10Code && (
-                            <span className="shrink-0 mt-0.5 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-mono font-bold text-violet-400 border border-violet-500/20 leading-none pt-1">
-                                {d.icd10Code}
+            <div className="space-y-2">
+                {visible.map((d, i) => {
+                    const isPrimary = i === 0;
+                    return (
+                        <div key={`${d.icd10Code}-${d.description}-${i}`} className="flex items-center gap-2">
+                            <span
+                                className={[
+                                    "shrink-0 rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-wider",
+                                    isPrimary
+                                        ? "bg-blue-500 text-white border border-blue-400/40 shadow-sm"
+                                        : "border border-slate-600/60 text-on-surface-variant bg-transparent",
+                                ].join(" ")}
+                            >
+                                {isPrimary ? "Primary Dx" : "Secondary"}
                             </span>
-                        )}
-                        <span className="text-sm text-slate-200 leading-snug">{d.description}</span>
-                    </div>
-                ))}
+
+                            <div className="min-w-0 flex-1 flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex items-center gap-2">
+                                    {d.icd10Code ? (
+                                        <div className="inline-flex items-center gap-1.5 shrink-0">
+                                            <span className="font-mono text-[12px] text-on-surface-variant">
+                                                {d.icd10Code}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => copyCode(d.icd10Code)}
+                                                className="p-1 rounded-md hover:bg-slate-700/30 text-on-surface-variant hover:text-primary transition-colors"
+                                                title="Copy ICD code"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                    <span className="min-w-0 truncate text-[14px] font-semibold text-on-surface">
+                                        {d.description || "—"}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {hiddenCount > 0 && !showAll && (
+                    <button
+                        type="button"
+                        onClick={() => setShowAll(true)}
+                        className="text-left text-[11px] font-bold text-primary hover:text-primary-hover"
+                    >
+                        +{hiddenCount} more
+                    </button>
+                )}
+                {hiddenCount > 0 && showAll && (
+                    <button
+                        type="button"
+                        onClick={() => setShowAll(false)}
+                        className="text-left text-[11px] font-bold text-primary hover:text-primary-hover"
+                    >
+                        Show less
+                    </button>
+                )}
             </div>
         </TimelineSection>
     );
@@ -115,25 +190,66 @@ function DiagnosisSection({ diagnoses }) {
 
 function MedicationsSection({ prescriptions }) {
     const hasRx = prescriptions?.length > 0;
+
+    const normalize = (s) => (s || "").toString().trim();
+    const toLower = (s) => normalize(s).toLowerCase();
+
+    const getShortCourseDays = (duration) => {
+        const t = toLower(duration);
+        const m = t.match(/(\d+)\s*(day|days|d)\b/);
+        if (!m) return null;
+        const n = Number(m[1]);
+        return Number.isFinite(n) ? n : null;
+    };
+
+    const getMedicationStatus = (p) => {
+        const instructions = toLower(p.instructions);
+        const duration = toLower(p.duration);
+
+        if (instructions.includes("prn") || instructions.includes("as needed")) {
+            return { label: "PRN", cls: "bg-purple-100 text-purple-700 border border-purple-200" };
+        }
+
+        if (duration.includes("stop") || duration.includes("stopped") || duration.includes("discontinue") || duration.includes("completed")) {
+            return { label: "Stopped", cls: "border border-red-500/50 text-red-600 bg-transparent" };
+        }
+
+        const days = getShortCourseDays(p.duration);
+        if (days !== null && days <= 7) {
+            return { label: "Short course", cls: "bg-amber-100 text-amber-800 border border-amber-200" };
+        }
+
+        return { label: "Active", cls: "bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]" };
+    };
+
+    const formatName = (name) => {
+        const n = normalize(name);
+        return n.length > 12 ? `${n.slice(0, 12)}…` : n || "Medication";
+    };
+
     return (
         <TimelineSection icon={Pill} iconColor="text-blue-500" label="Medications"
             isEmpty={!hasRx} emptyText="No medications prescribed">
             <div className="space-y-1.5">
                 {prescriptions?.slice(0, 4).map((p, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-1.5">
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-surface-alt border border-outline rounded-lg px-3 py-1.5">
                         <div className="flex items-center gap-2 min-w-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400/60 shrink-0" />
-                            <span className="text-sm font-bold text-slate-200 truncate">{p.medicationName}</span>
+                            <span className="text-sm font-bold text-on-surface truncate">{p.medicationName}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            {p.dosage && (
-                                <span className="text-[9px] font-black uppercase bg-blue-500/15 border border-blue-500/20 text-blue-400 px-2 py-0.5 rounded-md">
-                                    {p.dosage}
-                                </span>
-                            )}
-                            {p.duration && (
-                                <span className="text-[9px] font-bold text-slate-500">{p.duration}</span>
-                            )}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            {(() => {
+                                const status = getMedicationStatus(p);
+                                const name = formatName(p.medicationName);
+                                const dose = normalize(p.dosage);
+                                return (
+                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${status.cls} max-w-[200px] sm:max-w-none w-full sm:w-auto`}>
+                                        <span className="flex-1 truncate min-w-0">{name}</span>
+                                        {dose ? <span className="font-mono opacity-80 shrink-0">{dose}</span> : null}
+                                        <span className="opacity-80 shrink-0">{status.label}</span>
+                                    </span>
+                                );
+                            })()}
                         </div>
                     </div>
                 ))}
@@ -160,7 +276,7 @@ function LabsSection({ labOrders, imagingOrders }) {
                 ))}
                 {imagingOrders?.filter(i => i.imagingType).map((img, i) => (
                     <span key={`img-${i}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-bold">
-                        <ImageIcon className="w-3 h-3 opacity-60" />{img.imagingType} {img.bodyPart && `— ${img.bodyPart}`}
+                        <ImageIcon className="w-3 h-3 opacity-60" />{img.imagingType} {img.bodyPart && `â€” ${img.bodyPart}`}
                     </span>
                 ))}
             </div>
@@ -168,22 +284,155 @@ function LabsSection({ labOrders, imagingOrders }) {
     );
 }
 
+function canonicalizeFollowUpLabel(label) {
+    const l = (label || "").toLowerCase();
+    if (l.includes("ai suggestion")) return "ai";
+    if (l.includes("follow")) return "followup";
+    return "clinical";
+}
+
+function parseFollowUpNotes(raw) {
+    const text = (raw || "").replace(/\r\n/g, "\n").trim();
+    if (!text) return [];
+
+    const headerRe =
+        /(?:^|\n)\s*(?:#+\s*)?(?:\*\*)?\s*(Clinical Summary|AI Suggestion(?: Analysis)?|Follow[- ]?up Instructions)\s*(?:\*\*)?\s*[:\-â€“â€”]?\s*/gi;
+
+    const matches = [...text.matchAll(headerRe)].map((m) => ({
+        idx: m.index ?? 0,
+        contentStart: (m.index ?? 0) + m[0].length,
+        label: m[1] || "",
+    }));
+
+    const sectionsByKey = { clinical: "", ai: "", followup: "" };
+
+    if (matches.length === 0) {
+        sectionsByKey.clinical = text;
+    } else {
+        const prefix = text.slice(0, matches[0].idx).trim();
+        if (prefix) sectionsByKey.clinical = prefix;
+
+        for (let i = 0; i < matches.length; i++) {
+            const start = matches[i].contentStart;
+            const end = i + 1 < matches.length ? matches[i + 1].idx : text.length;
+            const content = text.slice(start, end).trim();
+            const key = canonicalizeFollowUpLabel(matches[i].label);
+            if (!content) continue;
+            sectionsByKey[key] = sectionsByKey[key] ? `${sectionsByKey[key]}\n\n${content}` : content;
+        }
+    }
+
+    const result = [
+        { key: "clinical", title: "Clinical Summary", icon: Stethoscope, content: sectionsByKey.clinical?.trim() },
+        { key: "ai", title: "AI Suggestion", icon: Activity, content: sectionsByKey.ai?.trim() },
+        { key: "followup", title: "Follow-up Instructions", icon: CalendarCheck, content: sectionsByKey.followup?.trim() },
+    ].filter((s) => s.content);
+
+    return result.length ? result : [{ key: "clinical", title: "Clinical Summary", icon: Stethoscope, content: text }];
+}
+
+function NotesAccordionRow({ title, icon: Icon, content, defaultOpen }) {
+    const [open, setOpen] = useState(!!defaultOpen);
+    const [expanded, setExpanded] = useState(false);
+
+    const showReadMore = (content || "").length > 160 || (content || "").split("\n").length > 4;
+
+    return (
+        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setOpen((p) => !p)}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-emerald-500/10 transition-colors"
+            >
+                <div className="flex items-center gap-2 min-w-0">
+                    <div className="shrink-0 w-7 h-7 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                        <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">
+                        {title}
+                    </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+
+            {open && (
+                <div className="px-3 pb-3">
+                    <p
+                        className={[
+                            "text-[13px] leading-[1.6] text-on-surface-variant whitespace-pre-line break-words",
+                            expanded ? "" : "line-clamp-3",
+                        ].join(" ")}
+                    >
+                        {content}
+                    </p>
+                    {showReadMore && (
+                        <button
+                            type="button"
+                            onClick={() => setExpanded((p) => !p)}
+                            className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-hover"
+                        >
+                            {expanded ? "Show less" : "Read more"}
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function FollowUpSection({ notes }) {
-    if (!notes?.trim()) return null;
+    const sections = useMemo(() => parseFollowUpNotes(notes), [notes]);
+    if (!notes?.trim() || sections.length === 0) return null;
+
     return (
         <TimelineSection icon={CalendarCheck} iconColor="text-emerald-500" label="Follow-up / Notes">
-            <p className="text-sm text-slate-300 leading-relaxed bg-emerald-500/5 border border-emerald-500/15 rounded-lg px-3 py-2">
-                {notes}
-            </p>
+            <div className="space-y-2">
+                {sections.map((s, idx) => (
+                    <NotesAccordionRow
+                        key={s.key}
+                        title={s.title}
+                        icon={s.icon}
+                        content={s.content}
+                        defaultOpen={idx === 0}
+                    />
+                ))}
+            </div>
         </TimelineSection>
     );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, handleDeleteVisit }) => {
+function IconLabelActionButton({ label, icon: Icon, onClick, disabled, tone = "default" }) {
+    const toneCls =
+        tone === "destructive"
+            ? "text-error border-error/40 hover:bg-error/10 hover:border-error/60"
+            : "text-on-surface-variant border-slate-700/50 hover:text-primary hover:border-primary/40 hover:bg-primary/10";
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className={[
+                "min-w-[44px] min-h-[44px] px-2 py-1 rounded-xl border transition-all disabled:opacity-40",
+                "flex flex-col items-center justify-center gap-1 select-none",
+                toneCls,
+            ].join(" ")}
+        >
+            <Icon className="w-4 h-4" />
+            <span className={`text-[11px] leading-none ${tone === "destructive" ? "text-error" : "text-on-surface-variant"}`}>
+                {label}
+            </span>
+        </button>
+    );
+}
+
+const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, handleDeleteVisit, onForwardVisit }) => {
     const sorted = [...visits].sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
     const [expandedId, setExpandedId] = useState(sorted[0]?.id ?? null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [mobileActionsId, setMobileActionsId] = useState(null);
 
     const {
         visibleItems: visibleVisits,
@@ -238,18 +487,22 @@ const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, 
                                     : "border-slate-700/40"
                             }`}>
 
-                            {/* ── Card Header (always visible) ── */}
+                            {/* â”€â”€ Card Header (always visible) â”€â”€ */}
                             <div
-                                className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors cursor-pointer group/header
+                                className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 py-3.5 text-left transition-colors cursor-pointer group/header
                                     ${isEmergency
                                         ? "bg-red-500/10 hover:bg-red-500/15"
                                         : isLatest
                                             ? "bg-primary/5 hover:bg-primary/10"
                                             : "bg-slate-800/50 hover:bg-slate-800/70"
                                     }`}
-                                onClick={() => setExpandedId(isExpanded ? null : v.id)}
+                                onClick={() => {
+                                    setConfirmDeleteId(null);
+                                    setMobileActionsId(null);
+                                    setExpandedId(isExpanded ? null : v.id);
+                                }}
                             >
-                                <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex items-start sm:items-center gap-3 min-w-0 w-full sm:w-auto">
                                     {/* Date block */}
                                     <div className={`shrink-0 flex flex-col items-center justify-center w-12 rounded-xl border py-2 text-center
                                         ${isEmergency
@@ -262,7 +515,7 @@ const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, 
                                     </div>
 
                                     {/* Meta */}
-                                    <div className="min-w-0">
+                                    <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-1.5 mb-1">
                                             <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider
                                                 ${typeConf.bg} ${typeConf.text} ${typeConf.border}`}>
@@ -278,75 +531,172 @@ const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, 
                                                 <Clock className="h-3 w-3" />{date.time}
                                             </span>
                                         </div>
-                                        <p className={`text-xs truncate max-w-xs font-medium ${isEmergency ? "text-red-400" : "text-slate-400"}`}>
+                                        <p className={`text-xs truncate font-medium ${isEmergency ? "text-red-400" : "text-slate-400"}`}>
                                             {v.symptoms
-                                                ? `"${v.symptoms.length > 70 ? v.symptoms.substring(0, 70) + "…" : v.symptoms}"`
+                                                ? `"${v.symptoms.length > 70 ? v.symptoms.substring(0, 70) + "â€¦" : v.symptoms}"`
                                                 : "No chief complaint recorded"}
                                         </p>
                                     </div>
                                 </div>
 
                                 {/* Right side: action buttons + chevron */}
-                                <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openFullChart(v.id);
-                                        }}
-                                        disabled={loadingChart}
-                                        title="View Full Report"
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/50
-                                            text-primary hover:border-primary hover:bg-primary/10
-                                            transition-all disabled:opacity-40 shadow-sm"
-                                    >
-                                        <FileText className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.open(`/encounter/${v.id}/report`, '_blank');
-                                        }}
-                                        title="Professional Print (New Tab)"
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-700/50
-                                            text-emerald-500 hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10
-                                            transition-all disabled:opacity-40"
-                                    >
-                                        <Printer className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openEditVisit(v.id);
-                                        }}
-                                        disabled={loadingChart}
-                                        title="Edit visit"
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/50
-                                            text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/10
-                                            transition-all disabled:opacity-40"
-                                    >
-                                        <Edit className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteVisit(v.id);
-                                        }}
-                                        title="Delete record"
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/50
-                                            text-slate-500 hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10
-                                            transition-all"
-                                    >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                    <div className={`ml-1 text-slate-500 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
+                                <div className="relative flex items-center justify-end gap-2 shrink-0 w-full sm:w-auto pl-[60px] sm:pl-0 mt-1 sm:mt-0" onClick={e => e.stopPropagation()}>
+                                    <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2">
+                                        <IconLabelActionButton
+                                            label="View"
+                                            icon={FileText}
+                                            disabled={loadingChart}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setConfirmDeleteId(null);
+                                                setMobileActionsId(null);
+                                                openFullChart(v.id);
+                                            }}
+                                        />
+                                        <IconLabelActionButton
+                                            label="Print"
+                                            icon={Printer}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setConfirmDeleteId(null);
+                                                setMobileActionsId(null);
+                                                window.open(`/encounter/${v.id}/report`, "_blank");
+                                            }}
+                                        />
+
+                                        {/* Desktop actions */}
+                                        <div className="flex items-center gap-2 max-[399px]:hidden">
+                                            <IconLabelActionButton
+                                                label="Forward"
+                                                icon={Send}
+                                                disabled={loadingChart}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setConfirmDeleteId(null);
+                                                    setMobileActionsId(null);
+                                                    if (typeof onForwardVisit === "function") onForwardVisit(v.id);
+                                                }}
+                                            />
+                                            <IconLabelActionButton
+                                                label="Edit"
+                                                icon={Edit}
+                                                disabled={loadingChart}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setConfirmDeleteId(null);
+                                                    setMobileActionsId(null);
+                                                    openEditVisit(v.id);
+                                                }}
+                                            />
+                                            <IconLabelActionButton
+                                                label="Delete"
+                                                icon={Trash2}
+                                                tone="destructive"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMobileActionsId(null);
+                                                    setConfirmDeleteId((cur) => (cur === v.id ? null : v.id));
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* <400px overflow */}
+                                        <div className="hidden max-[399px]:flex">
+                                            <IconLabelActionButton
+                                                label="More"
+                                                icon={ChevronDown}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setConfirmDeleteId(null);
+                                                    setMobileActionsId((cur) => (cur === v.id ? null : v.id));
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Delete confirmation popover */}
+                                    {confirmDeleteId === v.id && (
+                                        <div
+                                            className="absolute right-0 top-full mt-2 z-30 w-56 rounded-xl border border-outline bg-surface p-3 shadow-2xl backdrop-blur"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <p className="text-xs font-bold text-on-surface">Delete this visit?</p>
+                                            <p className="mt-1 text-[11px] leading-relaxed text-on-surface-variant">
+                                                This action can't be undone.
+                                            </p>
+                                            <div className="mt-3 flex items-center gap-2 justify-end">
+                                                <button
+                                                    type="button"
+                                                    className="px-3 py-2 rounded-lg border border-slate-700/50 text-[11px] font-bold text-on-surface-variant hover:bg-slate-800/60"
+                                                    onClick={() => setConfirmDeleteId(null)}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="px-3 py-2 rounded-lg border border-error/40 bg-error/10 text-[11px] font-black text-error hover:bg-error/15"
+                                                    onClick={() => {
+                                                        setConfirmDeleteId(null);
+                                                        handleDeleteVisit(v.id);
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Mobile overflow popover */}
+                                    {mobileActionsId === v.id && (
+                                        <div
+                                            className="absolute right-0 top-full mt-2 z-30 w-64 rounded-xl border border-outline bg-surface p-3 shadow-2xl backdrop-blur"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <IconLabelActionButton
+                                                    label="Forward"
+                                                    icon={Send}
+                                                    disabled={loadingChart}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setMobileActionsId(null);
+                                                        if (typeof onForwardVisit === "function") onForwardVisit(v.id);
+                                                    }}
+                                                />
+                                                <IconLabelActionButton
+                                                    label="Edit"
+                                                    icon={Edit}
+                                                    disabled={loadingChart}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setMobileActionsId(null);
+                                                        openEditVisit(v.id);
+                                                    }}
+                                                />
+                                                <IconLabelActionButton
+                                                    label="Delete"
+                                                    icon={Trash2}
+                                                    tone="destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setMobileActionsId(null);
+                                                        setConfirmDeleteId((cur) => (cur === v.id ? null : v.id));
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Expand indicator (hidden on <400px) */}
+                                    <div className={`ml-1 text-slate-500 transition-transform duration-200 max-[399px]:hidden ${isExpanded ? "rotate-90" : ""}`}>
                                         <ChevronRight className="h-4 w-4" />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* ── Expanded Timeline Body ── */}
+                            {/* â”€â”€ Expanded Timeline Body â”€â”€ */}
                             {isExpanded && (
-                                <div className="px-4 py-4 space-y-4 border-t border-slate-700/30 bg-slate-900/30 animate-fade-in">
+                                    <div className="px-4 py-4 space-y-4 border-t border-outline/40 bg-surface-alt/60 animate-fade-in">
                                     {/* 6-section structured timeline */}
                                     <ComplaintSection symptoms={v.symptoms} />
 
@@ -402,3 +752,4 @@ const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, 
 };
 
 export default VisitHistoryList;
+

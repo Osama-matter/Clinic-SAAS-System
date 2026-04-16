@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Edit } from "lucide-react";
 import axios from "axios";
 
@@ -6,6 +6,10 @@ const ICDAutoComplete = ({ code, description, onChangeCode, onChangeDesc }) => {
     const [query, setQuery] = useState(description);
     const [results, setResults] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const listRef = useRef(null);
+
+    const safeResults = useMemo(() => (Array.isArray(results) ? results : []), [results]);
 
     useEffect(() => {
         const timeout = setTimeout(async () => {
@@ -30,6 +34,46 @@ const ICDAutoComplete = ({ code, description, onChangeCode, onChangeDesc }) => {
         }
     }, [description, isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) setActiveIndex(-1);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setActiveIndex(safeResults.length > 0 ? 0 : -1);
+    }, [isOpen, safeResults.length]);
+
+    useEffect(() => {
+        if (!isOpen || activeIndex < 0) return;
+        const el = listRef.current?.querySelector(`[data-icd-index="${activeIndex}"]`);
+        if (el?.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+    }, [activeIndex, isOpen]);
+
+    const selectResult = (r) => {
+        onChangeCode(r[0]);
+        onChangeDesc(r[1]);
+        setQuery(r[1]);
+        setIsOpen(false);
+    };
+
+    const highlightMatch = (text, q) => {
+        const s = (text || "").toString();
+        const needle = (q || "").toString().trim();
+        if (!needle) return s;
+        const idx = s.toLowerCase().indexOf(needle.toLowerCase());
+        if (idx < 0) return s;
+        const before = s.slice(0, idx);
+        const match = s.slice(idx, idx + needle.length);
+        const after = s.slice(idx + needle.length);
+        return (
+            <>
+                {before}
+                <span className="font-black text-primary">{match}</span>
+                {after}
+            </>
+        );
+    };
+
     return (
         <div className="relative flex-1 min-w-0 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(80px,120px)_1fr]">
             <div className="relative">
@@ -41,7 +85,7 @@ const ICDAutoComplete = ({ code, description, onChangeCode, onChangeDesc }) => {
                     placeholder="E11.9"
                     value={code}
                     onChange={(e) => onChangeCode(e.target.value)}
-                    className="w-full p-3 border border-outline rounded-xl bg-surface text-sm font-bold text-on-surface outline-none focus:border-primary transition-colors hover:border-primary/30"
+                    className="w-full p-3 border-0 !border-transparent rounded-xl bg-surface-alt text-sm font-bold text-on-surface outline-none focus:ring-0 focus:outline-none transition-colors shadow-none"
                 />
             </div>
             <div className="relative">
@@ -57,26 +101,58 @@ const ICDAutoComplete = ({ code, description, onChangeCode, onChangeDesc }) => {
                         setQuery(e.target.value);
                         onChangeDesc(e.target.value);
                     }}
+                    onKeyDown={(e) => {
+                        if (!isOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+                            setIsOpen(true);
+                            return;
+                        }
+                        if (!isOpen) return;
+
+                        if (e.key === "Escape") {
+                            e.preventDefault();
+                            setIsOpen(false);
+                            return;
+                        }
+                        if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setActiveIndex((i) => Math.min(safeResults.length - 1, (i < 0 ? 0 : i + 1)));
+                        }
+                        if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setActiveIndex((i) => Math.max(0, (i < 0 ? 0 : i - 1)));
+                        }
+                        if (e.key === "Enter") {
+                            if (activeIndex >= 0 && activeIndex < safeResults.length) {
+                                e.preventDefault();
+                                selectResult(safeResults[activeIndex]);
+                            }
+                        }
+                    }}
                     onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-                    className="w-full p-3 border border-outline rounded-xl bg-surface text-sm font-bold text-on-surface outline-none focus:border-primary transition-colors hover:border-primary/30"
+                    className="w-full p-3 border-0 !border-transparent rounded-xl bg-surface-alt text-sm font-bold text-on-surface outline-none focus:ring-0 focus:outline-none transition-colors shadow-none"
                 />
-                {isOpen && results.length > 0 && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-surface border border-outline rounded-2xl shadow-2xl z-[9999] max-h-64 overflow-y-auto custom-scrollbar ring-8 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {results.map((r, i) => (
+                {isOpen && safeResults.length > 0 && (
+                    <div
+                        ref={listRef}
+                        className="absolute top-[calc(100%+8px)] left-0 right-0 bg-surface border rounded-lg z-[9999] max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+                        style={{ borderColor: "var(--border-color-strong)" }}
+                    >
+                        {safeResults.map((r, i) => (
                             <div
                                 key={i}
-                                className="p-4 hover:bg-primary/5 cursor-pointer border-b border-outline/30 last:border-0 flex items-center gap-4 transition-colors text-on-surface group/item"
-                                onClick={() => {
-                                    onChangeCode(r[0]);
-                                    onChangeDesc(r[1]);
-                                    setQuery(r[1]);
-                                    setIsOpen(false);
-                                }}
+                                data-icd-index={i}
+                                className={[
+                                    "p-4 cursor-pointer border-b border-outline/30 last:border-0 flex items-center gap-4 transition-colors text-on-surface group/item",
+                                    i === activeIndex ? "bg-primary/5" : "hover:bg-primary/5",
+                                ].join(" ")}
+                                onMouseEnter={() => setActiveIndex(i)}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => selectResult(r)}
                             >
                                 <span className="bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg text-xs font-black shrink-0 group-hover/item:bg-primary group-hover/item:text-white transition-colors">
-                                    {r[0]}
+                                    {highlightMatch(r[0], query)}
                                 </span>
-                                <span className="text-sm font-bold leading-tight">{r[1]}</span>
+                                <span className="text-sm font-bold leading-tight">{highlightMatch(r[1], query)}</span>
                             </div>
                         ))}
                     </div>

@@ -83,7 +83,7 @@ const LabAutoComplete = ({ value, onChange, placeholder = "Search lab tests..." 
                     onFocus={() => setIsOpen(true)}
                     onChange={(e) => { setQuery(e.target.value); onChange(e.target.value); }}
                     onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-                    className="w-full rounded-md border border-border/30 bg-card/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 transition-all pl-9 pr-8"
+                    className="w-full rounded-md border-0 !border-transparent bg-surface-alt px-3 py-2 text-sm text-foreground outline-none focus:ring-0 focus:outline-none transition-all pl-9 pr-8 shadow-none"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
                 {isLoading && (

@@ -31,7 +31,7 @@ const DiagnosisRxSection = ({
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start relative">
             {/* Assessment/Diagnosis */}
-            <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm transition-all duration-300">
+            <div className="relative z-50 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm transition-all duration-300">
                 <div className="flex items-center justify-between pb-6 mb-8 border-b border-border/10">
                     <div className="flex items-center gap-3">
                         <CheckCircle2 className="h-5 w-5 text-red-500" />
@@ -80,7 +80,7 @@ const DiagnosisRxSection = ({
             </div>
 
             {/* Prescriptions */}
-            <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm transition-all duration-300">
+            <div className="relative z-40 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm transition-all duration-300">
                 <div className="flex items-center justify-between pb-6 mb-8 border-b border-border/10">
                     <div className="flex items-center gap-3">
                         <Pill className="h-5 w-5 text-primary" />
@@ -187,8 +187,7 @@ const DiagnosisRxSection = ({
                                         type="text"
                                         placeholder="e.g. 500mg"
                                         value={rx.dosage}
-                                        onChange={(e) => updatePrescription(index, "dosage", e.target.value)}
-                                        className="w-full p-3.5 border border-outline rounded-xl bg-surface text-on-surface text-sm font-bold outline-none focus:border-primary hover:border-primary/30 transition-all shadow-inner"
+                                        className="w-full p-3.5 border-0 !border-transparent rounded-xl bg-surface-alt text-on-surface text-sm font-bold outline-none focus:ring-0 focus:outline-none transition-all shadow-none"
                                     />
                                 </div>
                                 <div>
@@ -199,8 +198,7 @@ const DiagnosisRxSection = ({
                                         type="text"
                                         placeholder="e.g. 5 Days"
                                         value={rx.duration}
-                                        onChange={(e) => updatePrescription(index, "duration", e.target.value)}
-                                        className="w-full p-3.5 border border-outline rounded-xl bg-surface text-on-surface text-sm font-bold outline-none focus:border-primary hover:border-primary/30 transition-all shadow-inner"
+                                        className="w-full p-3.5 border-0 !border-transparent rounded-xl bg-surface-alt text-on-surface text-sm font-bold outline-none focus:ring-0 focus:outline-none transition-all shadow-none"
                                     />
                                 </div>
                                 <div className="md:col-span-2 lg:col-span-4">
@@ -211,8 +209,7 @@ const DiagnosisRxSection = ({
                                         type="text"
                                         placeholder="e.g. 1 Tab 3x/day after food"
                                         value={rx.instructions}
-                                        onChange={(e) => updatePrescription(index, "instructions", e.target.value)}
-                                        className="w-full p-3.5 border border-outline rounded-xl bg-surface text-on-surface text-sm font-bold outline-none focus:border-primary hover:border-primary/30 transition-all shadow-inner"
+                                        className="w-full p-3.5 border-0 !border-transparent rounded-xl bg-surface-alt text-on-surface text-sm font-bold outline-none focus:ring-0 focus:outline-none transition-all shadow-none"
                                     />
                                 </div>
                             </div>

@@ -104,15 +104,27 @@ public class ApplicationDbContext : DbContext
 
     private async Task EnforcePlanLimitsAsync(CancellationToken cancellationToken)
     {
-        var affectedTenantIds = ChangeTracker.Entries<ITenantEntity>()
+        var addedEntries = ChangeTracker.Entries<ITenantEntity>()
             .Where(e => e.State == EntityState.Added)
+            .ToList();
+
+        if (addedEntries.Count == 0)
+            return;
+
+        // HIGH PERFORMANCE FIX: Only check limits if the added entities are restricted ones
+        bool hasRestrictedEntities = addedEntries.Any(e => 
+            e.Entity is Doctor || 
+            e.Entity is Patient || 
+            e.Entity is PatientAppointment);
+
+        if (!hasRestrictedEntities)
+            return;
+
+        var affectedTenantIds = addedEntries
             .Select(e => e.Property(nameof(ITenantEntity.TenantId)).CurrentValue)
             .OfType<Guid>()
             .Distinct()
             .ToList();
-
-        if (affectedTenantIds.Count == 0)
-            return;
 
         foreach (var tenantId in affectedTenantIds)
         {
@@ -135,26 +147,38 @@ public class ApplicationDbContext : DbContext
                 .FirstOrDefaultAsync(p => p.Id == subscription.PlanId, cancellationToken)
                 ?? throw new DomainException("Subscription plan could not be found.");
 
-            await EnsureLimitAsync(
-                tenantId,
-                plan.MaxDoctors,
-                Doctors.IgnoreQueryFilters().CountAsync(d => !d.IsDeleted && d.TenantId == tenantId, cancellationToken),
-                ChangeTracker.Entries<Doctor>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId),
-                "doctors");
+            // Only check Doctor limit if a Doctor was added
+            if (addedEntries.Any(e => e.Entity is Doctor && e.Entity.TenantId == tenantId))
+            {
+                await EnsureLimitAsync(
+                    tenantId,
+                    plan.MaxDoctors,
+                    Doctors.IgnoreQueryFilters().CountAsync(d => !d.IsDeleted && d.TenantId == tenantId, cancellationToken),
+                    addedEntries.Count(e => e.Entity is Doctor && e.Entity.TenantId == tenantId),
+                    "doctors");
+            }
 
-            await EnsureLimitAsync(
-                tenantId,
-                plan.MaxPatients,
-                Patients.IgnoreQueryFilters().CountAsync(p => !p.IsDeleted && p.TenantId == tenantId, cancellationToken),
-                ChangeTracker.Entries<Patient>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId),
-                "patients");
+            // Only check Patient limit if a Patient was added
+            if (addedEntries.Any(e => e.Entity is Patient && e.Entity.TenantId == tenantId))
+            {
+                await EnsureLimitAsync(
+                    tenantId,
+                    plan.MaxPatients,
+                    Patients.IgnoreQueryFilters().CountAsync(p => !p.IsDeleted && p.TenantId == tenantId, cancellationToken),
+                    addedEntries.Count(e => e.Entity is Patient && e.Entity.TenantId == tenantId),
+                    "patients");
+            }
 
-            await EnsureLimitAsync(
-                tenantId,
-                plan.MaxBookings,
-                Appointments.IgnoreQueryFilters().CountAsync(a => !a.IsDeleted && a.TenantId == tenantId, cancellationToken),
-                ChangeTracker.Entries<PatientAppointment>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId),
-                "appointments");
+            // Only check Appointment limit if an Appointment was added
+            if (addedEntries.Any(e => e.Entity is PatientAppointment && e.Entity.TenantId == tenantId))
+            {
+                await EnsureLimitAsync(
+                    tenantId,
+                    plan.MaxBookings,
+                    Appointments.IgnoreQueryFilters().CountAsync(a => !a.IsDeleted && a.TenantId == tenantId, cancellationToken),
+                    addedEntries.Count(e => e.Entity is PatientAppointment && e.Entity.TenantId == tenantId),
+                    "appointments");
+            }
         }
     }
 

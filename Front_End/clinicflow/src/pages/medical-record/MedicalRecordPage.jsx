@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useLocation, useParams, Link } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { ArrowLeft, Plus, Activity, FileDown, Clock, Sparkles, X, User, Phone, Calendar, ShieldAlert, Pill, HeartPulse, FileText, Loader2 } from "lucide-react";
 import { recordFileOpen, recordPatientOpen, recordVisitSessionComplete, recordVisitSessionStart } from "../../lib/doctorActivity";
 import toast from "react-hot-toast";
 
-// ─── Local imports ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Local imports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { usePatientRecord } from "./usePatientRecord";
 import { useMedicalForm } from "./useMedicalForm";
 import { sortVisitsByDate } from "./medicalUtils";
@@ -26,27 +26,48 @@ import AISuggestionDrawer from "./AISuggestionDrawer";
 import { generateVisitSuggestion } from "../../services/aiService";
 
 
-// ─── View modes ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ View modes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const VIEW = { HISTORY: "history", NEW: "new-visit", EDIT: "edit-visit", CHART: "chart-detail" };
 
-// ─── Patient profile sub-component ───────────────────────────────────────────
+// â”€â”€â”€ Patient profile sub-component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PatientProfileCard({ patient, generatingPrescription, onGeneratePdf }) {
     const isMale = patient.gender === 1;
     const isFemale = patient.gender === 2;
-    const genderLabel = isMale ? "Male" : isFemale ? "Female" : "Unknown";
+    const genderLabel = isMale ? "Male" : isFemale ? "Female" : "Not specified";
     const genderColor = isMale ? "from-blue-600 to-blue-800" : isFemale ? "from-rose-500 to-rose-700" : "from-slate-600 to-slate-800";
-    const genderBadge = isMale ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30" : isFemale ? "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30" : "bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-500/30";
+    const genderBadge = isMale
+        ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30"
+        : isFemale
+            ? "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30"
+            : "bg-slate-100 dark:bg-slate-700/40 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600/50";
 
-    const isFutureDob = patient.dateOfBirth && new Date(patient.dateOfBirth) > new Date();
+    const dobDate = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+    const dobValid = !!(dobDate && !Number.isNaN(dobDate.getTime()));
+    const isFutureDob = dobValid && dobDate > new Date();
     const isRTL = document.documentElement.dir === "rtl" || document.documentElement.lang === "ar";
     
-    const dobFormatted = patient.dateOfBirth 
-        ? new Date(patient.dateOfBirth).toLocaleDateString(isRTL ? "ar-EG" : "en-GB", { year: "numeric", month: "short", day: "numeric" })
+    const dobFormatted = dobValid
+        ? dobDate.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "2-digit" })
         : "—";
 
-    const age = patient.dateOfBirth && !isFutureDob
-        ? Math.floor((Date.now() - new Date(patient.dateOfBirth)) / (1000 * 60 * 60 * 24 * 365.25))
-        : null;
+    const computeAgeYears = (d) => {
+        const now = new Date();
+        let years = now.getFullYear() - d.getFullYear();
+        const hasHadBirthdayThisYear =
+            now.getMonth() > d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() >= d.getDate());
+        if (!hasHadBirthdayThisYear) years -= 1;
+        return years;
+    };
+
+    const ageYears = dobValid && !isFutureDob ? computeAgeYears(dobDate) : null;
+    const ageDisplay =
+        dobValid && !isFutureDob
+            ? (dobDate.getFullYear() === new Date().getFullYear() ? "0 years" : `${Math.max(0, ageYears)} years`)
+            : "N/A";
+
+    const rawPhone = (patient.phone || patient.phoneNumber || "").trim();
+    const phoneIsPlaceholder = rawPhone.toLowerCase() === "fsdfs";
+    const phoneDisplay = rawPhone && !phoneIsPlaceholder ? rawPhone : "—";
 
     const clinicalFlags = [
         patient.allergies && { label: "Allergies", value: patient.allergies, icon: ShieldAlert, theme: "red" },
@@ -67,11 +88,11 @@ function PatientProfileCard({ patient, generatingPrescription, onGeneratePdf }) 
 
     return (
         <div dir={isRTL ? "rtl" : "ltr"} className="overflow-hidden rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/50">
-            {/* ── Top colored accent bar ── */}
+            {/* â”€â”€ Top colored accent bar â”€â”€ */}
             <div className={`h-1.5 w-full bg-gradient-to-r ${genderColor}`} />
 
             <div className="p-6 sm:p-8">
-                {/* ── Main row: avatar + info + action ── */}
+                {/* â”€â”€ Main row: avatar + info + action â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-start gap-6">
 
                     {/* Avatar */}
@@ -100,32 +121,34 @@ function PatientProfileCard({ patient, generatingPrescription, onGeneratePdf }) 
                                 icon={<Calendar className="h-3.5 w-3.5" />}
                                 label="Date of Birth"
                                 value={dobFormatted}
-                                warning={isFutureDob ? "⚠ Future date" : null}
+                                warning={isFutureDob ? "Future date" : null}
+                                noTruncate
                                 isRTL={isRTL}
                             />
                             <PatientDataCell
                                 icon={<User className="h-3.5 w-3.5" />}
                                 label="Age"
-                                value={age !== null ? `${age} years` : isFutureDob ? "Invalid DOB" : "—"}
-                                warning={isFutureDob ? "impossible" : null}
+                                value={ageDisplay}
+                                warning={isFutureDob ? "Future DOB" : null}
                                 isRTL={isRTL}
                             />
                             <PatientDataCell
                                 icon={<Phone className="h-3.5 w-3.5" />}
                                 label="Phone"
-                                value={patient.phone || patient.phoneNumber || "—"}
+                                value={phoneDisplay}
+                                valueClassName={phoneDisplay === "—" ? "italic" : ""}
                                 isRTL={isRTL}
                             />
                             <PatientDataCell
                                 icon={<FileText className="h-3.5 w-3.5" />}
                                 label="File No."
-                                value={patient.id ? `PT-${patient.id.substring(0, 6).toUpperCase()}` : "—"}
+                                value={patient.id ? `PT-${patient.id.substring(0, 6).toUpperCase()}` : "â€”"}
                                 isRTL={isRTL}
                             />
                         </div>
                     </div>
 
-                    {/* Generate Summary Button */}
+                    {/* Generate Prescription Button */}
                     <div className="shrink-0 flex flex-col items-end gap-3">
                         <button
                             type="button"
@@ -137,12 +160,12 @@ function PatientProfileCard({ patient, generatingPrescription, onGeneratePdf }) 
                                 ? <Loader2 className="h-4 w-4 animate-spin" />
                                 : <FileDown className="h-4 w-4 transition-transform group-hover:scale-110" />
                             }
-                            {generatingPrescription ? "Preparing..." : "Generate Summary"}
+                            {generatingPrescription ? "Preparing..." : "Generate Prescription"}
                         </button>
                     </div>
                 </div>
 
-                {/* ── Clinical Flags row ── */}
+                {/* â”€â”€ Clinical Flags row â”€â”€ */}
                 {clinicalFlags.length > 0 && (
                     <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700/50 flex flex-wrap gap-2.5">
                         {clinicalFlags.map(({ label, value, icon: Icon, theme }) => (
@@ -161,7 +184,18 @@ function PatientProfileCard({ patient, generatingPrescription, onGeneratePdf }) 
     );
 }
 
-function PatientDataCell({ icon, label, value, warning, isRTL }) {
+function formatMinutesAgo(ts) {
+    if (!ts || Number.isNaN(ts)) return "";
+    const diffMs = Date.now() - ts;
+    if (diffMs < 0) return "";
+    const mins = Math.max(0, Math.round(diffMs / 60000));
+    if (mins <= 0) return "saved just now";
+    if (mins === 1) return "saved 1 minute ago";
+    return `saved ${mins} minutes ago`;
+}
+
+
+function PatientDataCell({ icon, label, value, warning, isRTL, noTruncate, valueClassName }) {
     const textAlignClass = isRTL ? "text-right" : "text-left";
     return (
         <div className={`flex flex-col gap-1 rounded-xl border px-4 py-3 transition-all ${warning
@@ -173,10 +207,20 @@ function PatientDataCell({ icon, label, value, warning, isRTL }) {
                 <span className={`text-[9px] font-black uppercase tracking-widest ${textAlignClass}`}>{label}</span>
             </div>
             <div className="flex items-center gap-2">
-                <p className={`text-sm font-bold truncate ${warning ? "text-amber-700 dark:text-amber-300" : "text-slate-900 dark:text-slate-200"} ${textAlignClass}`}>{value}</p>
+                <p
+                    className={[
+                        "text-sm font-bold",
+                        noTruncate ? "" : "truncate",
+                        warning ? "text-amber-700 dark:text-amber-300" : "text-slate-900 dark:text-slate-200",
+                        textAlignClass,
+                        valueClassName || "",
+                    ].join(" ")}
+                >
+                    {value}
+                </p>
                 {warning && (
                     <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 px-1.5 py-0.5 rounded-full">
-                        ⚠ {warning}
+                        âš  {warning}
                     </span>
                 )}
             </div>
@@ -184,7 +228,7 @@ function PatientDataCell({ icon, label, value, warning, isRTL }) {
     );
 }
 
-// ─── Vitals sidebar sub-component ────────────────────────────────────────────
+// â”€â”€â”€ Vitals sidebar sub-component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function VitalsSidebar({ latestVitals, visits }) {
     const lastVisitDate = visits.length > 0
         ? new Date(sortVisitsByDate(visits)[0].visitDate).toLocaleDateString()
@@ -202,15 +246,15 @@ function VitalsSidebar({ latestVitals, visits }) {
     const bmiCat = getBmiCategory(latestVitals?.bmi);
 
     const vitalRows = [
-        { label: "BP", value: latestVitals?.bloodPressure, unit: "mmHg", icon: "🩸" },
-        { label: "HR", value: latestVitals?.heartRate, unit: "BPM", icon: "💓" },
-        { label: "Temp", value: latestVitals?.temperature, unit: "°C", icon: "🌡️" },
-        { label: "Weight", value: latestVitals?.weight, unit: "kg", icon: "⚖️" },
+        { label: "BP", value: latestVitals?.bloodPressure, unit: "mmHg", icon: "ðŸ©¸" },
+        { label: "HR", value: latestVitals?.heartRate, unit: "BPM", icon: "ðŸ’“" },
+        { label: "Temp", value: latestVitals?.temperature, unit: "Â°C", icon: "ðŸŒ¡ï¸" },
+        { label: "Weight", value: latestVitals?.weight, unit: "kg", icon: "âš–ï¸" },
         {
             label: "BMI",
             value: latestVitals?.bmi,
             unit: "",
-            icon: "📊",
+            icon: "ðŸ“Š",
             extra: bmiCat.label ? (
                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md border border-current opacity-80 ${bmiCat.bg} ${bmiCat.color}`}>
                     {bmiCat.label}
@@ -221,7 +265,7 @@ function VitalsSidebar({ latestVitals, visits }) {
 
     return (
         <div className="w-full xl:w-[320px] space-y-6 lg:sticky lg:top-8">
-            {/* Vitals card — only shown when vitals exist */}
+            {/* Vitals card â€” only shown when vitals exist */}
             {latestVitals && (
             <div className="group rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
                 <div className="space-y-4">
@@ -250,13 +294,13 @@ function VitalsSidebar({ latestVitals, visits }) {
     );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MedicalRecordPage = () => {
     const { id } = useParams();
     const location = useLocation();
     const startVisitFromLink = new URLSearchParams(location.search || "").get("start") === "1";
 
-    // ── Data layer ──
+    // â”€â”€ Data layer â”€â”€
     const record = usePatientRecord(id);
     const {
         patient, visits, doctors, loading,
@@ -269,16 +313,17 @@ const MedicalRecordPage = () => {
         generateLatestMedicationPdf,
     } = record;
 
-    // ── Form layer ──
+    // â”€â”€ Form layer â”€â”€
     const form = useMedicalForm({ patient, visits, doctors });
 
-    // ── View state ──
+    // â”€â”€ View state â”€â”€
     const [viewMode, setViewMode] = useState(startVisitFromLink ? VIEW.NEW : VIEW.HISTORY);
     const [selectedVisit, setSelectedVisit] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [showSticky, setShowSticky] = useState(false);
+    const visitFormRef = useRef(null);
 
-    // ── Sticky Header Logic ──
+    // â”€â”€ Sticky Header Logic â”€â”€
     useEffect(() => {
         const handleScroll = () => {
             setShowSticky(window.scrollY > 300);
@@ -287,7 +332,7 @@ const MedicalRecordPage = () => {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    // ── AI State ──
+    // â”€â”€ AI State â”€â”€
     const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -315,7 +360,7 @@ const MedicalRecordPage = () => {
     };
 
 
-    // ── Global Document Shortcuts ──
+    // â”€â”€ Global Document Shortcuts â”€â”€
     useEffect(() => {
         const handleKeyDown = (e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -332,14 +377,14 @@ const MedicalRecordPage = () => {
 
 
 
-    // ── Template Usage Tracking ──
+    // â”€â”€ Template Usage Tracking â”€â”€
     const [recentTemplateIds, setRecentTemplateIds] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem("clinicflow_recent_templates") || "[]");
         } catch { return []; }
     });
 
-    // ── Template Hiding logic ──
+    // â”€â”€ Template Hiding logic â”€â”€
     const [hiddenTemplateIds, setHiddenTemplateIds] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem("clinicflow_hidden_templates") || "[]");
@@ -372,7 +417,7 @@ const MedicalRecordPage = () => {
         });
     }, [form]);
 
-    // ── Get filtered and sorted protocols ──
+    // â”€â”€ Get filtered and sorted protocols â”€â”€
     const sortedProtocols = useMemo(() => {
         return [...CLINICAL_PROTOCOLS].sort((a, b) => {
             const indexA = recentTemplateIds.indexOf(a.id);
@@ -389,7 +434,7 @@ const MedicalRecordPage = () => {
     const isFormMode = viewMode === VIEW.NEW || viewMode === VIEW.EDIT;
 
 
-    // ── Safe navigation: prompt if form has unsaved data ──
+    // â”€â”€ Safe navigation: prompt if form has unsaved data â”€â”€
     const safeSetViewMode = useCallback((target) => {
         if (isFormMode && target !== viewMode && form.formHasUnsavedData()) {
             if (!window.confirm("You have unsaved data. Leave without saving?")) return;
@@ -400,7 +445,7 @@ const MedicalRecordPage = () => {
         setViewMode(target);
     }, [isFormMode, viewMode, form]);
 
-    // ── Open full chart detail ──
+    // â”€â”€ Open full chart detail â”€â”€
     const openFullChart = useCallback(async (visitId) => {
         const v = await fetchVisitById(visitId);
         if (!v) return;
@@ -408,19 +453,23 @@ const MedicalRecordPage = () => {
         setViewMode(VIEW.CHART);
     }, [fetchVisitById]);
 
-    // ── Open visit for editing ──
+    // â”€â”€ Open visit for editing â”€â”€
     const openEditVisit = useCallback(async (visitId) => {
         const success = await form.loadVisitForEdit(visitId);
         if (success) setViewMode(VIEW.EDIT);
     }, [form]);
 
-    // ── Delete a visit ──
+    // â”€â”€ Delete a visit â”€â”€
     const handleDeleteVisit = useCallback(async (visitId) => {
-        if (!window.confirm("Are you sure you want to permanently delete this comprehensive medical record?")) return;
         await deleteVisit(visitId);
     }, [deleteVisit]);
 
-    // ── Generate prescription PDF ──
+    const handleForwardVisit = useCallback(async (visitId) => {
+        safeSetViewMode(VIEW.NEW);
+        await form.carryForward(visitId);
+    }, [safeSetViewMode, form]);
+
+    // â”€â”€ Generate prescription PDF â”€â”€
     const handleGeneratePdf = useCallback(async () => {
         const ok = await generateLatestMedicationPdf();
         if (ok && patient?.id) {
@@ -433,7 +482,7 @@ const MedicalRecordPage = () => {
         }
     }, [generateLatestMedicationPdf, patient]);
 
-    // ── Submit visit form (new or edit) ──
+    // â”€â”€ Submit visit form (new or edit) â”€â”€
     const handleSubmitVisit = useCallback(async (e) => {
         e.preventDefault();
         setSubmitting(true);
@@ -461,7 +510,7 @@ const MedicalRecordPage = () => {
         }
     }, [patient, viewMode]);
 
-    // ─── Loading / not found states ──────────────────────────────────────────
+    // â”€â”€â”€ Loading / not found states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (loading)
         return (
             <Layout>
@@ -477,39 +526,10 @@ const MedicalRecordPage = () => {
             </Layout>
         );
 
-    // ─── Render ───────────────────────────────────────────────────────────────
+    // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     return (
         <Layout title={`${patient.name} - Clinical Record`}>
-            {/* Unfinished Draft Alert */}
-            {viewMode === VIEW.NEW && form.hasDraft && (
-                <div className="mx-auto max-w-[1400px] px-4 mb-4 mt-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4 sm:p-3 sm:px-5 shadow-sm animate-in slide-in-from-top-2 duration-700">
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                                <Clock className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-black text-amber-900">Unfinished Visit Found</h4>
-                                <p className="text-[10px] sm:text-xs font-bold text-amber-700/80">Would you like to resume your last session?</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <button
-                                onClick={form.clearDraft}
-                                className="flex-1 sm:flex-none rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-900/50 hover:bg-amber-900/5 transition-colors"
-                            >
-                                Discard
-                            </button>
-                            <button
-                                onClick={form.loadDraft}
-                                className="flex-1 sm:flex-none rounded-lg bg-amber-500 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-md shadow-amber-500/10 hover:bg-amber-600 transition-colors"
-                            >
-                                Resume
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* Sticky Top Header */}
             {!isFormMode && (
@@ -521,23 +541,23 @@ const MedicalRecordPage = () => {
                 />
             )}
 
-            <div className="mx-auto max-w-[1400px] space-y-8 pb-40 px-4">
+            <div className="mx-auto max-w-[1400px] space-y-8 pb-40 px-0 sm:px-4">
 
-                {/* ── Top Navigation Bar ── */}
+                {/* â”€â”€ Top Navigation Bar â”€â”€ */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Link
                         to="/patients"
-                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-500 transition-all hover:bg-slate-50 hover:text-blue-600 shadow-sm"
+                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 transition-all hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 shadow-sm"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Patients Directory
+                        <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-blue-500" /> Patients Directory
                     </Link>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-xl border border-slate-100 sm:border-slate-200 bg-white p-1.5 sm:p-1 shadow-sm">
                         <button
                             onClick={() => safeSetViewMode(VIEW.HISTORY)}
                             className={`rounded-lg px-4 py-2.5 sm:py-2 text-sm font-bold transition-all ${viewMode === VIEW.HISTORY
-                                ? "text-slate-900 bg-slate-50"
-                                : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
+                                ? "text-slate-900 bg-slate-100"
+                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                                 }`}
                         >
                             History Log
@@ -564,13 +584,13 @@ const MedicalRecordPage = () => {
                     </div>
                 </div>
 
-                {/* ── Clinical Templates Toolbar ── */}
+                {/* â”€â”€ Clinical Templates Toolbar â”€â”€ */}
                 {viewMode === VIEW.NEW && (
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Clinical Protocols</span>
-                                <span className="bg-blue-50/50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-full border border-blue-100">70% Faster</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Clinical Protocols</span>
+                                <span className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm shadow-emerald-500/20">70% Faster</span>
                             </div>
                             {hiddenTemplateIds.length > 0 && (
                                 <button
@@ -638,22 +658,24 @@ const MedicalRecordPage = () => {
                 )}
 
 
-                {/* ── Two-column layout ── */}
+                {/* â”€â”€ Two-column layout â”€â”€ */}
                 <div className="flex flex-col xl:flex-row gap-8 items-start">
 
-                    {/* ── Main content ── */}
-                    <div className="flex-1 w-full space-y-8">
+                    {/* â”€â”€ Main content â”€â”€ */}
+                    <div className="flex-1 w-full space-y-8 min-w-0">
 
                         {/* Patient summary */}
-                        <PatientProfileCard
-                            patient={patient}
-                            generatingPrescription={generatingPdf}
-                            onGeneratePdf={handleGeneratePdf}
-                        />
+                        {viewMode === VIEW.HISTORY && (
+                            <PatientProfileCard
+                                patient={patient}
+                                generatingPrescription={generatingPdf}
+                                onGeneratePdf={handleGeneratePdf}
+                            />
+                        )}
 
                         {/* Visit form (new or edit) */}
                         {isFormMode && (
-                            <form onSubmit={handleSubmitVisit} className="space-y-8 animate-fade-in">
+                            <form ref={visitFormRef} onSubmit={handleSubmitVisit} className="space-y-8 animate-fade-in">
                                 <EncounterDetailsSection
                                     visitData={form.visitData}
                                     setVisitData={form.setVisitData}
@@ -716,6 +738,7 @@ const MedicalRecordPage = () => {
                                 openFullChart={openFullChart}
                                 openEditVisit={openEditVisit}
                                 handleDeleteVisit={handleDeleteVisit}
+                                onForwardVisit={handleForwardVisit}
                             />
                         )}
 
@@ -729,7 +752,7 @@ const MedicalRecordPage = () => {
                         )}
                     </div>
 
-                    {/* ── Sidebar (hidden in form mode) ── */}
+                    {/* â”€â”€ Sidebar (hidden in form mode) â”€â”€ */}
                     {!isFormMode && (
                         <VitalsSidebar latestVitals={latestVitals} visits={visits} />
                     )}
@@ -751,3 +774,4 @@ const MedicalRecordPage = () => {
 };
 
 export default MedicalRecordPage;
+
