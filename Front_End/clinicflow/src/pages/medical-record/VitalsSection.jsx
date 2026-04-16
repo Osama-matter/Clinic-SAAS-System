@@ -17,10 +17,13 @@ const VitalsSection = ({ visitData, setVisitData }) => {
     const bmiCategory = getBMICategory(visitData.bmi);
 
     return (
-        <div className="bg-surface border border-outline p-8 rounded-[2rem] shadow-sm">
-            <h2 className="text-xl font-black flex items-center gap-3 text-on-surface border-b border-outline pb-4 mb-6">
-                <Activity className="w-6 h-6 text-rose-500" /> Triage & Vitals
-            </h2>
+        <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm">
+            <div className="flex items-center gap-2 mb-8 pb-4 border-b border-border/10">
+                <Activity className="h-5 w-5 text-rose-500" />
+                <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                    Triage & Vital Signs
+                </h2>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 {VITAL_FIELDS.map((v) => (
                     <div

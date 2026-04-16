@@ -1,6 +1,7 @@
 import React from "react";
 import { Plus, Trash2, X, Beaker, ImageIcon } from "lucide-react";
 import { getFileUrl } from "../../services/api";
+import LabAutoComplete from "./LabAutoComplete";
 
 const LabImagingOrdersSection = ({
     visitData,
@@ -29,13 +30,9 @@ const LabImagingOrdersSection = ({
                 {visitData.labOrders.map((lab, index) => (
                     <div key={index}
                         className="flex gap-2 items-center rounded-lg border border-border/30 bg-secondary/30 p-2">
-                        <input
-                            type="text"
-                            placeholder="Test Name (e.g. CBC)"
+                        <LabAutoComplete
                             value={lab.testName}
-                            onChange={(e) => updateLabOrder(index, "testName", e.target.value)}
-                            className="flex-1 rounded-md border border-border/30 bg-card/50 px-2.5 py-1.5 text-sm text-foreground outline-none
-                                focus:border-primary/50 transition-all"
+                            onChange={(val) => updateLabOrder(index, "testName", val)}
                         />
                         <button
                             type="button"

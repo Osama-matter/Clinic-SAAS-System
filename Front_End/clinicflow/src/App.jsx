@@ -25,6 +25,7 @@ import RegisterClinicPage from "./pages/RegisterClinicPage";
 import SaaSManagementPage from "./pages/SaaSManagementPage";
 import ClinicLandingPage from "./pages/ClinicLandingPage";
 import ClinicPageSettingsPage from "./pages/ClinicPageSettingsPage";
+import EncounterReportPage from "./pages/medical-record/EncounterReportPage";
 
 const PublicClinicRoutes = ({ subdomain }) => (
   <Routes>
@@ -60,6 +61,7 @@ const MainRoutes = () => (
     <Route path="/clinic-page-settings" element={<ProtectedRoute adminOnly><ClinicPageSettingsPage /></ProtectedRoute>} />
     <Route path="/saas-management" element={<ProtectedRoute superAdminOnly><SaaSManagementPage /></ProtectedRoute>} />
     <Route path="/saas-features" element={<ProtectedRoute superAdminOnly><SaaSManagementPage initialTab="features" /></ProtectedRoute>} />
+    <Route path="/encounter/:visitId/report" element={<ProtectedRoute staffOnly><EncounterReportPage /></ProtectedRoute>} />
     <Route path="/consultations" element={<Navigate to="/doctor/schedule" replace />} />
     <Route path="*" element={<NotFoundPage />} />
   </Routes>

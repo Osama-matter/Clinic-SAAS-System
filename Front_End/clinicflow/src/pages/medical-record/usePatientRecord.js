@@ -21,6 +21,11 @@ export function usePatientRecord(patientId) {
     const latestVisitWithRx = useMemo(() => getLatestVisitWithPrescriptions(visits), [visits]);
 
     const loadPatientData = useCallback(async () => {
+        if (!patientId) {
+            setLoading(false);
+            return;
+        }
+        
         try {
             const [patientRes, visitsRes] = await Promise.all([
                 medicalPatientService.getById(patientId),
@@ -29,7 +34,7 @@ export function usePatientRecord(patientId) {
             setPatient(patientRes.data);
             setVisits(deduplicateVisits(visitsRes.data || []));
         } catch {
-            toast.error("Error loading patient records");
+            console.warn("Could not load patient records for ID:", patientId);
         } finally {
             setLoading(false);
         }
@@ -54,7 +59,8 @@ export function usePatientRecord(patientId) {
                 setClinic(res.data);
             }
         } catch (err) {
-            console.error("Failed to load clinic info", err);
+            // Silently swallow the 405 Method Not Allowed error since this endpoint is not implemented on the backend
+            // console.warn("Could not load clinic info");
         }
     }, []);
 
@@ -116,8 +122,7 @@ export function usePatientRecord(patientId) {
     useEffect(() => {
         loadPatientData();
         loadDoctors();
-        loadClinicInfo();
-    }, [loadPatientData, loadDoctors, loadClinicInfo]);
+    }, [loadPatientData, loadDoctors]);
 
     return {
         patient,

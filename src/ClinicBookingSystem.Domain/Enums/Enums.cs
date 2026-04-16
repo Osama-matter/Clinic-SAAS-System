@@ -37,7 +37,10 @@ public enum AppointmentStatus
     Cancelled = 2,
     Completed = 3,
     Rescheduled = 4,
-    NoShow = 5
+    NoShow = 5,
+    Waiting = 6,
+    InProgress = 7,
+    Late = 8
 }
 
 public enum RecurrenceFrequency

@@ -72,19 +72,23 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
     };
 
     return (
-        <div className="bg-surface border border-outline p-8 rounded-[2rem] shadow-sm">
+        <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm">
             {/* ── Header ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-outline pb-4 mb-6">
-                <h2 className="text-xl font-black flex items-center gap-3 text-on-surface">
-                    <Stethoscope className="w-6 h-6 text-emerald-500" />
-                    Physical Examination & Orders
-                </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 pb-6 border-b border-border/10">
+                <div className="flex items-center gap-3">
+                    <Stethoscope className="h-5 w-5 text-emerald-500" />
+                    <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                        Physical Examination & Notes
+                    </h2>
+                </div>
                 <button
                     type="button"
                     onClick={setAllToNormal}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-widest text-emerald-600 border border-emerald-100 shadow-sm transition-all hover:bg-emerald-600 hover:text-white active:scale-95"
+                    className="group/btn relative flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-emerald-500 px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 hover:shadow-emerald-500/40 active:scale-95 sm:w-auto"
                 >
-                    <Stethoscope className="w-4 h-4" /> Set All to Normal
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                    <Stethoscope className="h-3.5 w-3.5" />
+                    <span>Set All to Normal</span>
                 </button>
             </div>
 
@@ -134,16 +138,16 @@ const ExaminationSection = ({ visitData, setVisitData }) => {
             </div>
 
             {/* ── Local Examination Header ── */}
-            <div className="flex items-center gap-3 border-b border-outline pb-4 mb-6">
-                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center border border-emerald-100 shadow-sm">
-                    <Stethoscope className="w-5 h-5" />
+            <div className="flex items-center gap-4 mb-8">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500 shadow-inner">
+                    <Stethoscope className="h-6 w-6" />
                 </div>
                 <div>
-                    <h3 className="text-lg font-black text-on-surface">
-                        Local Examination (By Systems)
+                    <h3 className="text-sm font-black text-on-surface uppercase tracking-wider">
+                        Systemic Examination
                     </h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Tap a system to expand — only fill what's relevant
+                    <p className="mt-1 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] opacity-80">
+                        Interactive clinical panels for targeted physical assessment
                     </p>
                 </div>
             </div>

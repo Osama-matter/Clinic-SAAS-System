@@ -8,11 +8,12 @@ const FIELDS = [
 ];
 
 const PatientBackgroundSection = ({ visitData, setVisitData }) => (
-    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
-        <div className="flex items-center gap-2 mb-5 pb-4 border-b border-border/50">
-            <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                Patient Persistent Background
-            </span>
+    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-md p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/10">
+            <Activity className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                Patient Background
+            </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

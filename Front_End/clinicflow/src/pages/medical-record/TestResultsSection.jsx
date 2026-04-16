@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Trash2, FileSearch, ImageIcon } from "lucide-react";
+import { Plus, Trash2, FileSearch, ImageIcon, Activity } from "lucide-react";
 import { getFileUrl } from "../../services/api";
 
 const RESULT_INPUTS = [
@@ -9,19 +9,21 @@ const RESULT_INPUTS = [
 ];
 
 const TestResultsSection = ({ visitData, addResultRow, updateResult, removeResult, handleResultFileChange }) => (
-    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
-        <div className="flex items-center justify-between pb-4 mb-5 border-b border-border/50">
+    <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm">
+        <div className="flex items-center justify-between gap-2 mb-8 pb-4 border-b border-border/10">
             <div className="flex items-center gap-2">
-                <FileSearch className="h-4 w-4 text-warning" />
-                <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Test Results</h2>
+                <Activity className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                    Lab Results & Diagnostic Logs
+                </h2>
             </div>
             <button
                 type="button"
                 onClick={addResultRow}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-warning/30
-                    bg-warning/10 text-warning hover:bg-warning/20 transition-colors"
+                className="group/btn relative flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:shadow-amber-500/40 active:scale-95"
             >
-                <Plus className="h-4 w-4" />
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                <Plus className="h-5 w-5 text-white" />
             </button>
         </div>
 

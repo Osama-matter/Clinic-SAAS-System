@@ -1,38 +1,51 @@
 import React, { useMemo } from "react";
-import { Plus, Trash2, CheckCircle2, Pill, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, Pill, AlertTriangle, ShieldAlert } from "lucide-react";
 import ICDAutoComplete from "./ICDAutoComplete";
 import MedicationAutoComplete from "./MedicationAutoComplete";
-import { checkDrugInteractions } from "./utils";
+import { checkSafetyAlerts } from "./utils";
+
+const SEVERITY_STYLES = {
+    Critical: "bg-red-600/10 border-red-500 text-red-700 shadow-lg shadow-red-500/10",
+    High:     "bg-orange-50 border-orange-300 text-orange-800 shadow-md shadow-orange-500/5",
+    Medium:   "bg-amber-50 border-amber-200 text-amber-700",
+    Low:      "bg-blue-50 border-blue-200 text-blue-700",
+};
+const SEVERITY_ICON_STYLES = {
+    Critical: "bg-red-500 text-white animate-pulse",
+    High:     "bg-orange-500 text-white",
+    Medium:   "bg-amber-400 text-white",
+    Low:      "bg-blue-400 text-white",
+};
 
 const DiagnosisRxSection = ({
     visitData,
     addDiagnosisRow, updateDiagnosis, removeDiagnosis,
     addPrescriptionRow, updatePrescription, removePrescription,
 }) => {
-    // ─── التحقق من التفاعلات الدوائية ───
-    const interactionAlerts = useMemo(() => {
-        return checkDrugInteractions(visitData.prescriptions);
-    }, [visitData.prescriptions]);
+    // ─── التحقق من التنبيهات الأمنية (تفاعلات، حساسية، تكرار) ───
+    const safetyAlerts = useMemo(() => {
+        return checkSafetyAlerts(visitData.prescriptions, visitData.allergies);
+    }, [visitData.prescriptions, visitData.allergies]);
+
 
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start relative">
             {/* Assessment/Diagnosis */}
-            <div className="relative z-30 rounded-[2.5rem] border border-outline bg-surface p-4 shadow-sm group sm:p-8">
-                <div className="absolute top-0 left-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full -ml-16 -mt-16 group-hover:bg-red-500/10 transition-colors pointer-events-none" />
-
-                <div className="relative z-10 mb-6 flex items-center justify-between border-b border-outline/50 pb-4 sm:mb-8 sm:pb-5">
-                    <div>
-                        <h2 className="text-xl font-black flex items-center gap-3 text-red-500">
-                            <CheckCircle2 className="w-6 h-6 animate-pulse" /> Assessment
+            <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm transition-all duration-300">
+                <div className="flex items-center justify-between pb-6 mb-8 border-b border-border/10">
+                    <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-red-500" />
+                        <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                            Clinical Assessment
                         </h2>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 pl-9">Critical Findings & ICD-10</p>
                     </div>
                     <button
                         type="button"
                         onClick={addDiagnosisRow}
-                        className="w-10 h-10 flex items-center justify-center text-red-600 bg-red-50 hover:bg-red-500 hover:text-white rounded-2xl transition-all duration-300 shadow-sm hover:shadow-red-200"
+                        className="group/btn relative flex h-10 w-10 items-center justify-center rounded-xl bg-red-500 shadow-lg shadow-red-500/20 transition-all hover:-translate-y-0.5 hover:shadow-red-500/40 active:scale-95"
                     >
-                        <Plus className="w-5 h-5" />
+                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        <Plus className="h-5 w-5 text-white" />
                     </button>
                 </div>
 
@@ -40,7 +53,7 @@ const DiagnosisRxSection = ({
                     {visitData.diagnoses.map((diag, index) => (
                         <div
                             key={index}
-                            className="group/row flex flex-col items-stretch gap-4 rounded-[2rem] border border-outline/60 bg-surface-alt/40 p-4 shadow-sm transition-all duration-300 hover:border-red-200 sm:flex-row sm:items-end sm:p-5"
+                            className="group/row flex flex-col items-stretch gap-4 rounded-xl border border-outline/60 bg-surface-alt/40 p-4 shadow-sm transition-all duration-300 hover:border-red-200 sm:flex-row sm:items-end sm:p-5"
                         >
                             <ICDAutoComplete
                                 code={diag.icd10Code}
@@ -51,14 +64,14 @@ const DiagnosisRxSection = ({
                             <button
                                 type="button"
                                 onClick={() => removeDiagnosis(index)}
-                                className="p-3.5 text-red-300 hover:text-white hover:bg-red-500 rounded-2xl transition-all active:scale-90 sm:mb-0.5 opacity-100 sm:opacity-0 group-hover/row:opacity-100 flex items-center justify-center border border-outline/30 sm:border-0"
+                                className="p-3.5 text-red-300 hover:text-white hover:bg-red-500 rounded-xl transition-all active:scale-90 sm:mb-0.5 opacity-100 sm:opacity-0 group-hover/row:opacity-100 flex items-center justify-center border border-outline/30 sm:border-0"
                             >
                                 <Trash2 className="w-5 h-5" />
                             </button>
                         </div>
                     ))}
                     {visitData.diagnoses.length === 0 && (
-                        <div className="text-center py-10 bg-slate-50/50 rounded-[2rem] border border-dashed border-outline/50">
+                        <div className="text-center py-10 bg-slate-50/50 rounded-xl border border-dashed border-outline/50">
                             <CheckCircle2 className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No diagnoses recorded</p>
                         </div>
@@ -67,44 +80,45 @@ const DiagnosisRxSection = ({
             </div>
 
             {/* Prescriptions */}
-            <div className="relative z-20 overflow-visible rounded-[2.5rem] border border-outline bg-surface p-4 shadow-sm group sm:p-8">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors" />
-
-                <div className="relative z-10 mb-6 flex items-center justify-between border-b border-outline/50 pb-4 sm:mb-8 sm:pb-5">
-                    <div>
-                        <h2 className="text-xl font-black flex items-center gap-3 text-on-surface">
-                            <Pill className="w-6 h-6 text-primary" /> Rx & Plan
+            <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md p-8 shadow-sm transition-all duration-300">
+                <div className="flex items-center justify-between pb-6 mb-8 border-b border-border/10">
+                    <div className="flex items-center gap-3">
+                        <Pill className="h-5 w-5 text-primary" />
+                        <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                            Prescriptions & Plan
                         </h2>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 pl-9">Medication & Administration</p>
                     </div>
                     <button
                         type="button"
                         onClick={addPrescriptionRow}
-                        className="w-10 h-10 flex items-center justify-center text-primary bg-primary/5 hover:bg-primary hover:text-white rounded-2xl transition-all duration-300 shadow-sm hover:shadow-primary-glow"
+                        className="group/btn relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-primary/40 active:scale-95"
                     >
-                        <Plus className="w-5 h-5" />
+                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        <Plus className="h-5 w-5 text-white" />
                     </button>
                 </div>
 
-                {/* ─── قسم التنبيهات الذكية ─── */}
-                {interactionAlerts.length > 0 && (
-                    <div className="relative z-50 mb-6 space-y-3 animate-bounce-short">
-                        {interactionAlerts.map((alert, idx) => (
-                            <div 
-                                key={idx} 
-                                className={`flex items-start gap-3 p-4 rounded-2xl border ${
-                                    alert.severity === "Critical" 
-                                        ? "bg-red-50 border-red-200 text-red-700" 
-                                        : "bg-amber-50 border-amber-200 text-amber-700"
-                                } shadow-sm`}
+                {/* ─── Clinical Safety Alerts ─── */}
+                {safetyAlerts.length > 0 && (
+                    <div className="relative z-50 mb-6 space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                        {safetyAlerts.map((alert, idx) => (
+                            <div
+                                key={idx}
+                                className={`flex items-start gap-3 p-4 rounded-xl border transition-all duration-300 ${SEVERITY_STYLES[alert.severity] || SEVERITY_STYLES.Medium}`}
                             >
-                                <AlertTriangle className={`w-5 h-5 shrink-0 ${alert.severity === "Critical" ? "animate-pulse" : ""}`} />
-                                <div>
-                                    <p className="text-xs font-black uppercase tracking-wider mb-1">{alert.severity} Alert</p>
-                                    <p className="text-sm font-bold leading-relaxed">{alert.message}</p>
+                                <div className={`p-2 rounded-xl shrink-0 ${SEVERITY_ICON_STYLES[alert.severity] || SEVERITY_ICON_STYLES.Medium}`}>
+                                    {alert.type === "Same Drug" ? <ShieldAlert className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-[10px] font-black uppercase tracking-widest">{alert.type}</p>
+                                        <div className="h-px flex-1 bg-current/10" />
+                                        <p className="text-[8px] font-black uppercase tracking-tighter opacity-70">{alert.severity} Risk</p>
+                                    </div>
+                                    <p className="text-sm font-black leading-snug">{alert.message}</p>
                                     <div className="mt-2 flex flex-wrap gap-2">
                                         {alert.involved.map(drug => (
-                                            <span key={drug} className="text-[10px] font-black px-2 py-0.5 bg-white/50 rounded-full border border-current opacity-70">
+                                            <span key={drug} className="text-[10px] font-bold px-2 py-0.5 bg-white/50 rounded-full border border-current/20">
                                                 {drug}
                                             </span>
                                         ))}
@@ -115,17 +129,42 @@ const DiagnosisRxSection = ({
                     </div>
                 )}
 
+
                 <div className="space-y-6 relative z-10">
-                    {visitData.prescriptions.map((rx, index) => (
+                    {visitData.prescriptions.map((rx, index) => {
+                        const rxName = rx.medicationName?.toLowerCase().trim();
+                        const isFlagged = rxName && safetyAlerts.some(a =>
+                            a.involved?.some(drug => drug.toLowerCase() === rxName)
+                        );
+                        const flagAlert = isFlagged
+                            ? safetyAlerts.find(a => a.involved?.some(drug => drug.toLowerCase() === rxName))
+                            : null;
+
+                        return (
                         <div
                             key={index}
-                            className="relative flex flex-col gap-5 rounded-[2rem] border border-outline/60 bg-surface-alt/40 p-4 transition-all duration-300 group/rx hover:border-primary/30 sm:p-6"
+                            className={`relative flex flex-col gap-5 rounded-xl border p-4 transition-all duration-300 group/rx sm:p-6 ${
+                                flagAlert?.severity === "Critical"
+                                    ? "border-red-400 bg-red-500/5 shadow-md shadow-red-500/10"
+                                    : flagAlert?.severity === "High"
+                                        ? "border-orange-300 bg-orange-50/50"
+                                        : "border-outline/60 bg-surface-alt/40 hover:border-primary/30"
+                            }`}
                         >
+                            {isFlagged && (
+                                <div className={`absolute -top-2 left-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-md ${
+                                    flagAlert?.severity === "Critical" ? "bg-red-500" : "bg-orange-400"
+                                }`}>
+                                    <AlertTriangle className="w-3 h-3" />
+                                    {flagAlert?.type} — {flagAlert?.severity}
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => removePrescription(index)}
-                                className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover/rx:opacity-100"
+                                className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-100 sm:opacity-0 group-hover/rx:opacity-100"
                             >
+
                                 <Trash2 className="w-4 h-4" />
                             </button>
 
@@ -178,9 +217,10 @@ const DiagnosisRxSection = ({
                                 </div>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                     {visitData.prescriptions.length === 0 && (
-                        <div className="text-center py-10 bg-slate-50/50 rounded-[2rem] border border-dashed border-outline/50">
+                        <div className="text-center py-10 bg-slate-50/50 rounded-xl border border-dashed border-outline/50">
                             <Pill className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No prescriptions recorded</p>
                         </div>

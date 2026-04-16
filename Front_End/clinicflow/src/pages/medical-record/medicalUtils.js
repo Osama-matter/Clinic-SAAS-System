@@ -7,6 +7,29 @@ export function calculateBmi(weightKg, heightCm) {
     return (w / (h * h)).toFixed(1);
 }
 
+// ─── Age & Date Helpers ───────────────────────────────────────────────────────
+
+/** Returns integer age from a Date-of-Birth string/Date. */
+export function calcAge(dob) {
+    if (!dob) return null;
+    const birth = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+    return age;
+}
+
+/** Returns human-friendly string like "Today", "Yesterday", or "14d ago". */
+export function daysSince(dateStr) {
+    if (!dateStr) return null;
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    return `${days}d ago`;
+}
+
 // ─── Visit deduplication + sorting ───────────────────────────────────────────
 
 export function deduplicateVisits(visits = []) {

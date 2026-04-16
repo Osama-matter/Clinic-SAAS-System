@@ -51,6 +51,10 @@ const translations = {
     statusRescheduled: "Rescheduled",
     statusCompleted: "Completed",
     statusNoShow: "No Show",
+    statusWaiting: "Waiting",
+    statusInProgress: "In-Progress",
+    statusDone: "Done",
+    statusLate: "Late",
     myAppointments: "My Appointments",
     myAppointmentsSubtitle: "Your clinic bookings and medical service history.",
     total: "Total",
@@ -168,7 +172,10 @@ const translations = {
     yourReference: "Your Booking Reference",
     saveReferenceHint: "Save this reference to manage your booking later.",
     manageBookings: "Manage Bookings",
-    backToHome: "Back to Home"
+    backToHome: "Back to Home",
+    today: "Today",
+    late: "Late",
+    myPatients: "My Patients"
   },
   ar: {
     // Nav
@@ -218,6 +225,10 @@ const translations = {
     statusRescheduled: "تمت إعادة الجدولة",
     statusCompleted: "مكتمل",
     statusNoShow: "عدم حضور",
+    statusWaiting: "في الانتظار",
+    statusInProgress: "قيد التنفيذ",
+    statusDone: "تم الانتهاء",
+    statusLate: "متأخر",
     myAppointments: "مواعيدي",
     myAppointmentsSubtitle: "حجوزاتك في العيادة وسجلك الطبي.",
     total: "الإجمالي",
@@ -335,7 +346,10 @@ const translations = {
     yourReference: "رقم المرجع الخاص بك",
     saveReferenceHint: "احفظ هذا المرجع لتتمكن من إدارة حجزك لاحقاً.",
     manageBookings: "إدارة الحجوزات",
-    backToHome: "العودة للرئيسية"
+    backToHome: "العودة للرئيسية",
+    today: "اليوم",
+    late: "متأخر",
+    myPatients: "مرضاي"
   }
 };
 

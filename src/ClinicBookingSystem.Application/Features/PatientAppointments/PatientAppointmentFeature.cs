@@ -589,7 +589,7 @@ public class UpdateAppointmentStatusCommandHandler : IRequestHandler<UpdateAppoi
                 (AppointmentStatus.Confirmed, AppointmentStatus.Completed) => true,
                 (AppointmentStatus.Rescheduled, AppointmentStatus.Confirmed) => true,
                 (AppointmentStatus.Rescheduled, AppointmentStatus.Cancelled) => true,
-                _ => isAdmin
+                _ => isAdmin || _currentUser.Role == "Doctor" || _currentUser.Role == "4" || _currentUser.Role == "Receptionist" || _currentUser.Role == "3"
             };
 
             if (!valid)
@@ -697,3 +697,4 @@ public class GetMyAppointmentsQueryHandler : IRequestHandler<GetMyAppointmentsQu
             ));
     }
 }
+

@@ -3,6 +3,8 @@ import { medicalPatientService, visitService } from "../../services/api";
 import { toast } from "react-hot-toast";
 import { calculateBmi, hydrateFormFromVisit, sortVisitsByDate, buildPatientUpdatePayload, buildVisitPayload } from "./medicalUtils";
 import { EMPTY_VISIT_FORM, resolveUploadUrl } from "./utils";
+import { MEDICATION_DEFAULTS } from "./clinicalKnowledge";
+
 
 /**
  * Owns the entire visit form state, row-level CRUD for dynamic tables,
@@ -34,14 +36,6 @@ export function useMedicalForm({ patient, visits, doctors }) {
         }));
     }, [patient]);
 
-    // ── Auto-calculate BMI ──
-    useEffect(() => {
-        const bmi = calculateBmi(visitData.weight, visitData.height);
-        if (bmi && bmi !== visitData.bmi) {
-            setVisitData((prev) => ({ ...prev, bmi }));
-        }
-    }, [visitData.weight, visitData.height]);
-
     // ── Unsaved changes detection ──
     const formHasUnsavedData = useCallback(() => (
         !!(
@@ -54,6 +48,49 @@ export function useMedicalForm({ patient, visits, doctors }) {
             visitData.prescriptions?.some((p) => p.medicationName?.trim())
         )
     ), [visitData]);
+
+    // ── Auto-calculate BMI ──
+    useEffect(() => {
+        const bmi = calculateBmi(visitData.weight, visitData.height);
+        if (bmi && bmi !== visitData.bmi) {
+            setVisitData((prev) => ({ ...prev, bmi }));
+        }
+    }, [visitData.weight, visitData.height]);
+ 
+    // ── Auto-save draft ──
+    useEffect(() => {
+        if (!patient?.id) return;
+        const timer = setTimeout(() => {
+            if (formHasUnsavedData()) {
+                localStorage.setItem(`clinicflow_draft_${patient.id}`, JSON.stringify(visitData));
+            }
+        }, 3000); // Debounce 3s
+        return () => clearTimeout(timer);
+    }, [visitData, patient?.id, formHasUnsavedData]);
+
+    const loadDraft = useCallback(() => {
+        if (!patient?.id) return;
+        const saved = localStorage.getItem(`clinicflow_draft_${patient.id}`);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setVisitData(parsed);
+                toast.success("Draft visit resumed successfully.");
+                return true;
+            } catch (e) {
+                console.error("Failed to parse draft", e);
+            }
+        }
+        return false;
+    }, [patient?.id]);
+
+    const clearDraft = useCallback(() => {
+        if (patient?.id) {
+            localStorage.removeItem(`clinicflow_draft_${patient.id}`);
+        }
+    }, [patient?.id]);
+
+
 
     // ── Load a visit into the form for editing ──
     const loadVisitForEdit = useCallback(async (visitId) => {
@@ -127,10 +164,75 @@ export function useMedicalForm({ patient, visits, doctors }) {
     const addPrescriptionRow  = () => setVisitData((p) => ({ ...p, prescriptions: [...p.prescriptions, { medicationName: "", dosage: "", instructions: "", duration: "" }] }));
     const removePrescription  = (i) => setVisitData((p) => ({ ...p, prescriptions: p.prescriptions.filter((_, idx) => idx !== i) }));
     const updatePrescription  = (i, field, value) => setVisitData((p) => {
-        const next = [...p.prescriptions]; next[i] = { ...next[i], [field]: value }; return { ...p, prescriptions: next };
+        const next = [...p.prescriptions];
+        const updatedRow = { ...next[i], [field]: value };
+
+        // ── Smart Defaults Logic ──
+        if (field === "medicationName" && value) {
+            const defaults = MEDICATION_DEFAULTS[value];
+            if (defaults) {
+                if (!updatedRow.dosage)      updatedRow.dosage = defaults.dosage;
+                if (!updatedRow.duration)    updatedRow.duration = defaults.duration;
+                if (!updatedRow.instructions) updatedRow.instructions = defaults.instructions;
+            }
+        }
+
+        next[i] = updatedRow;
+        return { ...p, prescriptions: next };
     });
 
+    // ── Apply Clinical Template ──
+    const applyTemplate = useCallback((template) => {
+        if (!template?.data) return;
+        const d = template.data;
+        
+        setVisitData((prev) => ({
+            ...prev,
+            symptoms: d.symptoms || prev.symptoms,
+            diagnoses: d.diagnoses?.length > 0 
+                ? [...prev.diagnoses.filter(x => x.description || x.icd10Code), ...d.diagnoses]
+                : prev.diagnoses,
+            prescriptions: d.prescriptions?.length > 0
+                ? [...prev.prescriptions.filter(x => x.medicationName), ...d.prescriptions]
+                : prev.prescriptions,
+            labOrders: d.labOrders?.length > 0
+                ? [...prev.labOrders.filter(x => x.testName), ...d.labOrders]
+                : prev.labOrders,
+            notes: d.notes ? (prev.notes ? `${prev.notes}\n\n${d.notes}` : d.notes) : prev.notes
+        }));
+        
+        toast.success(`Applied ${template.name} protocol`);
+    }, []);
+
+
+    // ── Apply AI Suggestions ──
+    const applyAISuggestions = useCallback((suggestion) => {
+        if (!suggestion) return;
+
+        setVisitData((prev) => ({
+            ...prev,
+            diagnoses: suggestion.diagnosis 
+                ? [{ icd10Code: "", description: suggestion.diagnosis }, ...prev.diagnoses.filter(x => x.description || x.icd10Code)] 
+                : prev.diagnoses,
+            prescriptions: suggestion.medications?.length > 0
+                ? [...suggestion.medications.map(m => ({
+                    medicationName: m.medicationName,
+                    dosage: m.dosage,
+                    instructions: m.instructions || m.frequency,
+                    duration: m.duration
+                })), ...prev.prescriptions.filter(x => x.medicationName)]
+                : prev.prescriptions,
+            labOrders: suggestion.labs?.length > 0
+                ? [...suggestion.labs.map(l => ({ testName: l.testName })), ...prev.labOrders.filter(x => x.testName)]
+                : prev.labOrders,
+            notes: suggestion.notes ? (prev.notes ? `${prev.notes}\n\nAI Suggestion Analysis:\n${suggestion.notes}` : suggestion.notes) : prev.notes
+        }));
+
+        toast.success("AI clinical proposal applied to record");
+    }, []);
+
     // ── Lab orders ──
+
     const addLabOrderRow      = () => setVisitData((p) => ({ ...p, labOrders: [...p.labOrders, { testName: "" }] }));
     const removeLabOrder      = (i) => setVisitData((p) => ({ ...p, labOrders: p.labOrders.filter((_, idx) => idx !== i) }));
     const updateLabOrder      = (i, field, value) => setVisitData((p) => {
@@ -187,7 +289,9 @@ export function useMedicalForm({ patient, visits, doctors }) {
             }
 
             resetForm();
+            clearDraft();
             if (typeof onSuccessReload === "function") onSuccessReload();
+
             return true;
         } catch (err) {
             const msg =
@@ -243,5 +347,13 @@ export function useMedicalForm({ patient, visits, doctors }) {
         addImagingRow, updateImaging, removeImaging, handleFileChange,
         // Results
         addResultRow, updateResult, removeResult, handleResultFileChange,
+        applyTemplate,
+        applyAISuggestions,
+        loadDraft,
+
+        clearDraft,
+        hasDraft: !!(patient?.id && localStorage.getItem(`clinicflow_draft_${patient.id}`)),
     };
+
+
 }

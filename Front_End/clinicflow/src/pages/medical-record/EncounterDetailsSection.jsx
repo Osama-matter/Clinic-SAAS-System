@@ -1,12 +1,13 @@
 import React from "react";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Sparkles, Loader2 } from "lucide-react";
 
-const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode }) => (
-    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
-        <div className="flex items-center gap-2 mb-5 pb-4 border-b border-border/50">
+const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode, onAiAssist, aiLoading }) => (
+
+    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-md p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/10">
             <ClipboardList className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                {viewMode === "edit-visit" ? "Edit Encounter Details" : "Encounter Details"}
+            <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+                {viewMode === "edit-visit" ? "Edit Encounter" : "Encounter Details"}
             </h2>
         </div>
 
@@ -62,9 +63,26 @@ const EncounterDetailsSection = ({ visitData, setVisitData, doctors, viewMode })
         </div>
 
         <div className="mt-4 space-y-1.5">
-            <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Chief Complaint / Symptoms
-            </label>
+            <div className="flex items-center justify-between">
+                <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Chief Complaint / Symptoms
+                </label>
+                <button
+                    type="button"
+                    onClick={onAiAssist}
+                    disabled={aiLoading}
+                    className="group relative flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-primary text-white shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {aiLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <Sparkles className="h-4 w-4 group-hover:animate-pulse" />
+                    )}
+                    <span>{aiLoading ? "Consulting AI..." : "✨ Magic AI Assist"}</span>
+                </button>
+            </div>
+
             <textarea
                 rows={3}
                 value={visitData.symptoms}

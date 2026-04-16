@@ -15,8 +15,11 @@ import {
   Clock,
   Menu,
   Sun,
-  Moon
+  Moon,
+  Keyboard
 } from "lucide-react";
+import GlobalSearchModal from "../pages/medical-record/GlobalSearchModal";
+
 
 const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
   const { user, isAdmin, isDoctor, isReceptionist } = useAuth();
@@ -24,7 +27,9 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
   const { toggleTheme, isDark } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const dropdownRef = useRef(null);
+
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -56,6 +61,26 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // ── Global Keyboard Shortcuts ──
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Cmd/Ctrl + K to search
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+      
+      // Global Cancel (Esc)
+      if (e.key === "Escape") {
+        setShowSearch(false);
+      }
+    };
+    
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
 
   const handleMarkAsRead = async (id) => {
     try {
@@ -137,10 +162,13 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
         )}
 
         {/* Search — desktop only */}
-        <div className="hidden lg:flex items-center gap-3 px-5 py-2.5 bg-slate-100/50 border border-outline/10 rounded-2xl text-slate-400 hover:border-primary/20 hover:bg-white transition-all w-72 cursor-text shadow-inner group">
+        <div 
+          onClick={() => setShowSearch(true)}
+          className="hidden lg:flex items-center gap-3 px-5 py-2.5 bg-slate-100/50 border border-outline/10 rounded-2xl text-slate-400 hover:border-primary/20 hover:bg-white transition-all w-72 cursor-text shadow-inner group"
+        >
           <Search className="w-4 h-4 group-hover:text-primary transition-colors shrink-0" />
           <span className="text-xs font-bold opacity-60 italic truncate">
-            {lang === "ar" ? "بحث عن مريض أو موعد..." : "Search patients, bookings..."}
+            {lang === "ar" ? "بحث عن مريض أو موعد..." : "Search patients, phone..."}
           </span>
           <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} flex items-center gap-1 opacity-40 shrink-0`}>
             <span className="text-[10px] font-black bg-white px-2 py-0.5 rounded-lg border border-outline/10 shadow-sm">⌘</span>
@@ -148,6 +176,9 @@ const TopBar = ({ title, onMenuClick, hideUserActions = false }) => {
           </div>
         </div>
       </div>
+      
+      <GlobalSearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} />
+
 
       {/* RIGHT: Actions */}
       <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">

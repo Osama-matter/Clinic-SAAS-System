@@ -1,87 +1,183 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useLocation, useParams, Link } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { ArrowLeft, Plus, Activity, FileDown } from "lucide-react";
+import { ArrowLeft, Plus, Activity, FileDown, Clock, Sparkles, X, User, Phone, Calendar, ShieldAlert, Pill, HeartPulse, FileText, Loader2 } from "lucide-react";
 import { recordFileOpen, recordPatientOpen, recordVisitSessionComplete, recordVisitSessionStart } from "../../lib/doctorActivity";
+import toast from "react-hot-toast";
 
 // ─── Local imports ────────────────────────────────────────────────────────────
-import { usePatientRecord }  from "./usePatientRecord";
-import { useMedicalForm }    from "./useMedicalForm";
+import { usePatientRecord } from "./usePatientRecord";
+import { useMedicalForm } from "./useMedicalForm";
 import { sortVisitsByDate } from "./medicalUtils";
 
-import EncounterDetailsSection   from "./EncounterDetailsSection";
-import PatientBackgroundSection  from "./PatientBackgroundSection";
-import VitalsSection             from "./VitalsSection";
-import ExaminationSection        from "./ExaminationSection";
-import LabImagingOrdersSection   from "./LabImagingOrdersSection";
-import TestResultsSection        from "./TestResultsSection";
-import DiagnosisRxSection        from "./DiagnosisRxSection";
-import VisitFormBottomBar        from "./VisitFormBottomBar";
-import VisitHistoryList          from "./VisitHistoryList";
-import VisitChartDetail          from "./VisitChartDetail";
+import EncounterDetailsSection from "./EncounterDetailsSection";
+import PatientBackgroundSection from "./PatientBackgroundSection";
+import VitalsSection from "./VitalsSection";
+import ExaminationSection from "./ExaminationSection";
+import LabImagingOrdersSection from "./LabImagingOrdersSection";
+import TestResultsSection from "./TestResultsSection";
+import DiagnosisRxSection from "./DiagnosisRxSection";
+import VisitFormBottomBar from "./VisitFormBottomBar";
+import VisitHistoryList from "./VisitHistoryList";
+import VisitChartDetail from "./VisitChartDetail";
+import StickyPatientHeader from "./StickyPatientHeader";
+import { CLINICAL_PROTOCOLS } from "./clinicalKnowledge";
+import AISuggestionDrawer from "./AISuggestionDrawer";
+import { generateVisitSuggestion } from "../../services/aiService";
+
 
 // ─── View modes ───────────────────────────────────────────────────────────────
 const VIEW = { HISTORY: "history", NEW: "new-visit", EDIT: "edit-visit", CHART: "chart-detail" };
 
 // ─── Patient profile sub-component ───────────────────────────────────────────
 function PatientProfileCard({ patient, generatingPrescription, onGeneratePdf }) {
-    const genderIcon = patient.gender === 1 ? "👨" : patient.gender === 2 ? "👩" : "👤";
+    const isMale = patient.gender === 1;
+    const isFemale = patient.gender === 2;
+    const genderLabel = isMale ? "Male" : isFemale ? "Female" : "Unknown";
+    const genderColor = isMale ? "from-blue-600 to-blue-800" : isFemale ? "from-rose-500 to-rose-700" : "from-slate-600 to-slate-800";
+    const genderBadge = isMale ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30" : isFemale ? "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30" : "bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-500/30";
+
+    const isFutureDob = patient.dateOfBirth && new Date(patient.dateOfBirth) > new Date();
+    const isRTL = document.documentElement.dir === "rtl" || document.documentElement.lang === "ar";
+    
+    const dobFormatted = patient.dateOfBirth 
+        ? new Date(patient.dateOfBirth).toLocaleDateString(isRTL ? "ar-EG" : "en-GB", { year: "numeric", month: "short", day: "numeric" })
+        : "—";
+
+    const age = patient.dateOfBirth && !isFutureDob
+        ? Math.floor((Date.now() - new Date(patient.dateOfBirth)) / (1000 * 60 * 60 * 24 * 365.25))
+        : null;
+
+    const clinicalFlags = [
+        patient.allergies && { label: "Allergies", value: patient.allergies, icon: ShieldAlert, theme: "red" },
+        patient.chronicDiseases && { label: "Chronic", value: patient.chronicDiseases, icon: HeartPulse, theme: "orange" },
+        patient.drugHistory && { label: "Active Meds", value: patient.drugHistory, icon: Pill, theme: "blue" },
+    ].filter(Boolean);
+
+    const flagTheme = {
+        red: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-300",
+        orange: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/25 text-orange-600 dark:text-orange-300",
+        blue: "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/25 text-blue-600 dark:text-blue-300",
+    };
+    const flagIconTheme = {
+        red: "text-red-500 dark:text-red-400",
+        orange: "text-orange-500 dark:text-orange-400",
+        blue: "text-blue-500 dark:text-blue-400",
+    };
 
     return (
-        <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-[2rem] border border-outline bg-surface p-5 shadow-sm sm:gap-6 sm:p-8">
-            <div className="absolute right-0 top-0 w-64 h-64 bg-primary/5 blur-3xl rounded-full" />
+        <div dir={isRTL ? "rtl" : "ltr"} className="overflow-hidden rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/50">
+            {/* ── Top colored accent bar ── */}
+            <div className={`h-1.5 w-full bg-gradient-to-r ${genderColor}`} />
 
-            <div className="relative z-10 min-w-0 flex-1">
-                {/* Name row */}
-                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <h1 className="min-w-0 flex-1 text-2xl font-black text-on-surface sm:text-4xl">
-                        <span className="mr-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner align-middle sm:h-12 sm:w-12">
-                            {genderIcon}
-                        </span>
-                        <span className="inline-block max-w-full break-words align-middle">{patient.name}</span>
-                    </h1>
-                    <button
-                        type="button"
-                        onClick={onGeneratePdf}
-                        disabled={generatingPrescription}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-primary px-4 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-primary/35 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                    >
-                        <FileDown className="h-4 w-4" />
-                        {generatingPrescription ? "Generating..." : "Generate Medication & Administration"}
-                    </button>
-                </div>
+            <div className="p-6 sm:p-8">
+                {/* ── Main row: avatar + info + action ── */}
+                <div className="flex flex-col md:flex-row md:items-start gap-6">
 
-                {/* Demographics */}
-                <div className="flex flex-col gap-2 text-sm font-medium text-on-surface-variant sm:flex-row sm:flex-wrap sm:gap-6">
-                    <span className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary/40" />
-                        {patient.phone}
-                    </span>
-                    <span className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary/40" />
-                        DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
-                    </span>
-                </div>
-
-                {/* Clinical flags */}
-                {(patient.allergies || patient.chronicDiseases || patient.drugHistory) && (
-                    <div className="mt-5 flex flex-wrap gap-3">
-                        {patient.allergies && (
-                            <span className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                                <Activity className="w-3 h-3" /> Allergies: {patient.allergies}
-                            </span>
-                        )}
-                        {patient.chronicDiseases && (
-                            <span className="bg-orange-500/10 border border-orange-500/20 text-orange-500 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">
-                                Chronic: {patient.chronicDiseases}
-                            </span>
-                        )}
-                        {patient.drugHistory && (
-                            <span className="bg-blue-500/10 border border-blue-500/20 text-blue-500 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">
-                                Drugs: {patient.drugHistory}
-                            </span>
-                        )}
+                    {/* Avatar */}
+                    <div className={`relative shrink-0 flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-2xl bg-gradient-to-br ${genderColor} shadow-xl`}>
+                        <User className="h-10 w-10 sm:h-12 sm:w-12 text-white/80" />
+                        <div className={`absolute -bottom-2 ${isRTL ? "-left-2" : "-right-2"} rounded-full bg-emerald-500 w-5 h-5 flex items-center justify-center border-2 border-white dark:border-slate-900`}>
+                            <div className="w-2 h-2 rounded-full bg-white" />
+                        </div>
                     </div>
+
+                    {/* Patient Info */}
+                    <div className="flex-1 min-w-0">
+                        {/* Name + Gender badge */}
+                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                            <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white truncate">
+                                {patient.name}
+                            </h1>
+                            <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${genderBadge}`}>
+                                {genderLabel}
+                            </span>
+                        </div>
+
+                        {/* Data grid: DOB, Age, Phone, File ID */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                            <PatientDataCell
+                                icon={<Calendar className="h-3.5 w-3.5" />}
+                                label="Date of Birth"
+                                value={dobFormatted}
+                                warning={isFutureDob ? "⚠ Future date" : null}
+                                isRTL={isRTL}
+                            />
+                            <PatientDataCell
+                                icon={<User className="h-3.5 w-3.5" />}
+                                label="Age"
+                                value={age !== null ? `${age} years` : isFutureDob ? "Invalid DOB" : "—"}
+                                warning={isFutureDob ? "impossible" : null}
+                                isRTL={isRTL}
+                            />
+                            <PatientDataCell
+                                icon={<Phone className="h-3.5 w-3.5" />}
+                                label="Phone"
+                                value={patient.phone || patient.phoneNumber || "—"}
+                                isRTL={isRTL}
+                            />
+                            <PatientDataCell
+                                icon={<FileText className="h-3.5 w-3.5" />}
+                                label="File No."
+                                value={patient.id ? `PT-${patient.id.substring(0, 6).toUpperCase()}` : "—"}
+                                isRTL={isRTL}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Generate Summary Button */}
+                    <div className="shrink-0 flex flex-col items-end gap-3">
+                        <button
+                            type="button"
+                            onClick={onGeneratePdf}
+                            disabled={generatingPrescription}
+                            className="group flex items-center gap-3 rounded-xl bg-blue-600 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-blue-500/30 transition-all hover:bg-blue-500 hover:shadow-blue-500/50 hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {generatingPrescription
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <FileDown className="h-4 w-4 transition-transform group-hover:scale-110" />
+                            }
+                            {generatingPrescription ? "Preparing..." : "Generate Summary"}
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── Clinical Flags row ── */}
+                {clinicalFlags.length > 0 && (
+                    <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700/50 flex flex-wrap gap-2.5">
+                        {clinicalFlags.map(({ label, value, icon: Icon, theme }) => (
+                            <div key={label} className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${flagTheme[theme]}`}>
+                                <Icon className={`h-3.5 w-3.5 shrink-0 ${flagIconTheme[theme]}`} />
+                                <div className={`min-w-0 ${isRTL ? "text-right" : "text-left"}`}>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 opacity-80 dark:opacity-60 leading-none mb-1">{label}</p>
+                                    <p className="text-xs font-bold leading-tight truncate max-w-[180px] text-slate-900 dark:text-inherit">{value}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function PatientDataCell({ icon, label, value, warning, isRTL }) {
+    const textAlignClass = isRTL ? "text-right" : "text-left";
+    return (
+        <div className={`flex flex-col gap-1 rounded-xl border px-4 py-3 transition-all ${warning
+                ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30"
+                : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/40"
+            }`}>
+            <div className={`flex items-center gap-1.5 ${warning ? "text-amber-600 dark:text-amber-400" : "text-slate-500"}`}>
+                {icon}
+                <span className={`text-[9px] font-black uppercase tracking-widest ${textAlignClass}`}>{label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <p className={`text-sm font-bold truncate ${warning ? "text-amber-700 dark:text-amber-300" : "text-slate-900 dark:text-slate-200"} ${textAlignClass}`}>{value}</p>
+                {warning && (
+                    <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 px-1.5 py-0.5 rounded-full">
+                        ⚠ {warning}
+                    </span>
                 )}
             </div>
         </div>
@@ -110,10 +206,10 @@ function VitalsSidebar({ latestVitals, visits }) {
         { label: "HR", value: latestVitals?.heartRate, unit: "BPM", icon: "💓" },
         { label: "Temp", value: latestVitals?.temperature, unit: "°C", icon: "🌡️" },
         { label: "Weight", value: latestVitals?.weight, unit: "kg", icon: "⚖️" },
-        { 
-            label: "BMI", 
-            value: latestVitals?.bmi, 
-            unit: "", 
+        {
+            label: "BMI",
+            value: latestVitals?.bmi,
+            unit: "",
             icon: "📊",
             extra: bmiCat.label ? (
                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md border border-current opacity-80 ${bmiCat.bg} ${bmiCat.color}`}>
@@ -124,53 +220,32 @@ function VitalsSidebar({ latestVitals, visits }) {
     ];
 
     return (
-        <div className="w-full xl:w-[320px] space-y-6 sticky top-8">
-            {/* Vitals card */}
-            <div className="bg-white border border-outline rounded-[2rem] p-6 shadow-sm">
-                <h3 className="text-sm font-black text-on-surface uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-rose-500" /> Current Vitals
-                </h3>
-                {latestVitals ? (
-                    <div className="space-y-4">
-                        {vitalRows.filter((v) => v.value).map((v) => (
-                            <div key={v.label} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-lg">{v.icon}</span>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase leading-none">{v.label}</span>
-                                        {v.extra}
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-sm font-black text-on-surface">{v.value}</span>
-                                    {v.unit && <span className="text-[9px] font-bold text-slate-400 ml-1">{v.unit}</span>}
+        <div className="w-full xl:w-[320px] space-y-6 lg:sticky lg:top-8">
+            {/* Vitals card — only shown when vitals exist */}
+            {latestVitals && (
+            <div className="group rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+                <div className="space-y-4">
+                    {vitalRows.filter((v) => v.value).map((v) => (
+                        <div key={v.label} className="group/vital flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 transition-all hover:bg-slate-100/50">
+                            <div className="flex items-center gap-3">
+                                <span className="text-xl transition-transform group-hover/vital:scale-110">{v.icon}</span>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase leading-none">{v.label}</span>
+                                    {v.extra}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-8">
-                        <p className="text-xs font-bold text-slate-300">No vitals on record</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Quick stats card */}
-            <div className="bg-indigo-600 rounded-[2rem] p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden group">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                <h3 className="text-xs font-black uppercase tracking-widest mb-4 opacity-80">Quick Stats</h3>
-                <div className="space-y-4 relative z-10">
-                    <div>
-                        <p className="text-2xl font-black">{visits.length}</p>
-                        <p className="text-[10px] font-bold uppercase opacity-70 tracking-wider">Total Encounters</p>
-                    </div>
-                    <div className="h-px bg-white/10" />
-                    <div>
-                        <p className="text-lg font-black">{lastVisitDate}</p>
-                        <p className="text-[10px] font-bold uppercase opacity-70 tracking-wider">Last Visit</p>
-                    </div>
+                            <div className="text-right">
+                                <span className="text-sm font-black text-slate-700">{v.value}</span>
+                                {v.unit && <span className="text-[9px] font-bold text-slate-400 ml-1">{v.unit}</span>}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
+            )}
+
+            {/* Quick stats card */}
+
         </div>
     );
 }
@@ -198,11 +273,121 @@ const MedicalRecordPage = () => {
     const form = useMedicalForm({ patient, visits, doctors });
 
     // ── View state ──
-    const [viewMode, setViewMode]       = useState(startVisitFromLink ? VIEW.NEW : VIEW.HISTORY);
+    const [viewMode, setViewMode] = useState(startVisitFromLink ? VIEW.NEW : VIEW.HISTORY);
     const [selectedVisit, setSelectedVisit] = useState(null);
-    const [submitting, setSubmitting]   = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [showSticky, setShowSticky] = useState(false);
+
+    // ── Sticky Header Logic ──
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowSticky(window.scrollY > 300);
+        };
+        window.addEventListener("scroll", handleScroll);
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
+
+    // ── AI State ──
+    const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+    const [aiSuggestion, setAiSuggestion] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+
+    const handleAiAssist = async () => {
+        if (!form.visitData.symptoms?.trim()) {
+            toast.error("Please enter symptoms first to guide the AI.");
+            return;
+        }
+        setAiDrawerOpen(true);
+        setAiLoading(true);
+        try {
+            const result = await generateVisitSuggestion({
+                symptoms: form.visitData.symptoms,
+                patient: patient,
+                history: patient.medicalHistory
+            });
+            setAiSuggestion(result);
+        } catch (error) {
+            toast.error(error.message || "AI Assistance failed");
+            setAiDrawerOpen(false);
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+
+    // ── Global Document Shortcuts ──
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+                e.preventDefault();
+                const submitBtn = document.getElementById("submit-clinical-record");
+                if (submitBtn) {
+                    submitBtn.click();
+                }
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
+
+
+
+    // ── Template Usage Tracking ──
+    const [recentTemplateIds, setRecentTemplateIds] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("clinicflow_recent_templates") || "[]");
+        } catch { return []; }
+    });
+
+    // ── Template Hiding logic ──
+    const [hiddenTemplateIds, setHiddenTemplateIds] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("clinicflow_hidden_templates") || "[]");
+        } catch { return []; }
+    });
+
+    const hideTemplate = useCallback((e, id) => {
+        e.stopPropagation();
+        setHiddenTemplateIds((prev) => {
+            const next = [...new Set([...prev, id])];
+            localStorage.setItem("clinicflow_hidden_templates", JSON.stringify(next));
+            return next;
+        });
+        toast.success("Protocol hidden from toolbar");
+    }, []);
+
+    const restoreTemplates = () => {
+        localStorage.removeItem("clinicflow_hidden_templates");
+        setHiddenTemplateIds([]);
+        toast.success("All clinical protocols restored");
+    };
+
+    const handleApplyTemplate = useCallback((protocol) => {
+
+        form.applyTemplate(protocol);
+        setRecentTemplateIds((prev) => {
+            const next = [protocol.id, ...prev.filter(id => id !== protocol.id)].slice(0, 5);
+            localStorage.setItem("clinicflow_recent_templates", JSON.stringify(next));
+            return next;
+        });
+    }, [form]);
+
+    // ── Get filtered and sorted protocols ──
+    const sortedProtocols = useMemo(() => {
+        return [...CLINICAL_PROTOCOLS].sort((a, b) => {
+            const indexA = recentTemplateIds.indexOf(a.id);
+            const indexB = recentTemplateIds.indexOf(b.id);
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+    }, [recentTemplateIds]);
+
+    const visibleProtocols = sortedProtocols.filter(p => !hiddenTemplateIds.includes(p.id));
 
     const isFormMode = viewMode === VIEW.NEW || viewMode === VIEW.EDIT;
+
 
     // ── Safe navigation: prompt if form has unsaved data ──
     const safeSetViewMode = useCallback((target) => {
@@ -295,35 +480,74 @@ const MedicalRecordPage = () => {
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <Layout title={`${patient.name} - Clinical Record`}>
+            {/* Unfinished Draft Alert */}
+            {viewMode === VIEW.NEW && form.hasDraft && (
+                <div className="mx-auto max-w-[1400px] px-4 mb-4 mt-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4 sm:p-3 sm:px-5 shadow-sm animate-in slide-in-from-top-2 duration-700">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                                <Clock className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-amber-900">Unfinished Visit Found</h4>
+                                <p className="text-[10px] sm:text-xs font-bold text-amber-700/80">Would you like to resume your last session?</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={form.clearDraft}
+                                className="flex-1 sm:flex-none rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-900/50 hover:bg-amber-900/5 transition-colors"
+                            >
+                                Discard
+                            </button>
+                            <button
+                                onClick={form.loadDraft}
+                                className="flex-1 sm:flex-none rounded-lg bg-amber-500 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-md shadow-amber-500/10 hover:bg-amber-600 transition-colors"
+                            >
+                                Resume
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Sticky Top Header */}
+            {!isFormMode && (
+                <StickyPatientHeader
+                    patient={patient}
+                    latestVisitDate={visits[0]?.visitDate}
+                    currentMeds={latestVisitWithRx?.prescriptions}
+                    visible={showSticky}
+                />
+            )}
+
             <div className="mx-auto max-w-[1400px] space-y-8 pb-40 px-4">
 
                 {/* ── Top Navigation Bar ── */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Link
                         to="/patients"
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-outline bg-surface px-4 py-2 text-center font-bold text-slate-400 transition-colors hover:text-primary hover:shadow-sm sm:w-auto"
+                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-500 transition-all hover:bg-slate-50 hover:text-blue-600 shadow-sm"
                     >
                         <ArrowLeft className="w-4 h-4" /> Patients Directory
                     </Link>
 
-                    <div className="flex w-full overflow-hidden rounded-xl border border-outline bg-surface p-1 shadow-sm sm:w-auto">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-xl border border-slate-100 sm:border-slate-200 bg-white p-1.5 sm:p-1 shadow-sm">
                         <button
                             onClick={() => safeSetViewMode(VIEW.HISTORY)}
-                            className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all sm:flex-none sm:px-6 ${
-                                viewMode === VIEW.HISTORY
-                                    ? "bg-primary text-white shadow-md"
-                                    : "text-on-surface-variant hover:bg-surface-alt"
-                            }`}
+                            className={`rounded-lg px-4 py-2.5 sm:py-2 text-sm font-bold transition-all ${viewMode === VIEW.HISTORY
+                                ? "text-slate-900 bg-slate-50"
+                                : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
+                                }`}
                         >
                             History Log
                         </button>
                         <button
                             onClick={() => safeSetViewMode(VIEW.NEW)}
-                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-all sm:flex-none sm:px-6 ${
-                                viewMode === VIEW.NEW
-                                    ? "bg-emerald-500 text-white shadow-md"
-                                    : "text-emerald-500 hover:bg-emerald-500/10"
-                            }`}
+                            className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 sm:py-2 text-sm font-black transition-all ${viewMode === VIEW.NEW
+                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                                : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                                }`}
                         >
                             <Plus className="w-4 h-4" /> Start Visit
                         </button>
@@ -331,7 +555,7 @@ const MedicalRecordPage = () => {
                             <button
                                 type="button"
                                 onClick={form.carryForward}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-amber-600 transition-all hover:bg-amber-50 sm:flex-none sm:px-6"
+                                className="flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 sm:py-2 text-sm font-bold text-amber-600 transition-all hover:bg-amber-50"
                                 title="Copy data from previous visit"
                             >
                                 <ArrowLeft className="w-4 h-4 rotate-180" /> Carry Forward
@@ -339,6 +563,80 @@ const MedicalRecordPage = () => {
                         )}
                     </div>
                 </div>
+
+                {/* ── Clinical Templates Toolbar ── */}
+                {viewMode === VIEW.NEW && (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Clinical Protocols</span>
+                                <span className="bg-blue-50/50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-full border border-blue-100">70% Faster</span>
+                            </div>
+                            {hiddenTemplateIds.length > 0 && (
+                                <button
+                                    onClick={restoreTemplates}
+                                    className="text-[9px] font-black text-primary/40 uppercase hover:text-primary transition-colors"
+                                >
+                                    Restore All
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex flex-nowrap gap-4 overflow-x-auto pb-4 custom-scrollbar-hide -mx-2 px-2">
+                            {visibleProtocols.map((protocol) => {
+                                const isRecent = recentTemplateIds.includes(protocol.id);
+                                return (
+                                    <div key={protocol.id} className="group relative shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApplyTemplate(protocol)}
+                                            className={`flex flex-col items-center gap-4 rounded-2xl border bg-white p-5 sm:p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-500/5 w-32 sm:w-40 ${isRecent ? "border-blue-400 ring-4 ring-blue-50 shadow-lg shadow-blue-500/10" : "border-blue-100/50 hover:border-blue-300"
+                                                }`}
+                                        >
+                                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-50 bg-blue-50/30 text-3xl transition-all duration-500 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-xl group-hover:shadow-blue-500/20">
+                                                {protocol.icon}
+                                            </div>
+                                            <div className="text-center">
+                                                <span className="text-xs font-black text-slate-700 whitespace-nowrap block truncate w-32">{protocol.name}</span>
+                                                {isRecent && (
+                                                    <span className="mt-1 block text-[8px] font-black text-blue-500 uppercase tracking-[0.1em]">Recently Used</span>
+                                                )}
+                                            </div>
+                                            <div className="absolute -right-1 -top-1 translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-emerald-500 p-1.5 text-white shadow-xl transition-all duration-300 group-hover/btn:scale-100">
+                                                <Plus className="h-4 w-4" />
+                                            </div>
+                                        </button>
+
+                                        {/* Delete (Hide) Button */}
+                                        <button
+                                            onClick={(e) => hideTemplate(e, protocol.id)}
+                                            className="absolute -left-2 -top-2 flex h-7 w-7 scale-0 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-300 shadow-lg transition-all duration-300 hover:bg-red-500 hover:text-white hover:border-red-500 group-hover:scale-100"
+                                            title="Hide protocol"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Pro-tip for carry forward */}
+                            {visits.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={form.carryForward}
+                                    className="group flex shrink-0 flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/30 p-5 sm:p-6 transition-all hover:-translate-y-2 hover:border-amber-400 hover:bg-amber-50 w-32 sm:w-40"
+                                >
+                                    <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 transition-all group-hover:bg-amber-500 group-hover:text-white shadow-sm">
+                                        <ArrowLeft className="h-6 w-6 rotate-180" />
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="text-[10px] sm:text-xs font-black text-amber-700 block">Repeat Visit</span>
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
 
                 {/* ── Two-column layout ── */}
                 <div className="flex flex-col xl:flex-row gap-8 items-start">
@@ -361,6 +659,8 @@ const MedicalRecordPage = () => {
                                     setVisitData={form.setVisitData}
                                     doctors={doctors}
                                     viewMode={viewMode}
+                                    onAiAssist={handleAiAssist}
+                                    aiLoading={aiLoading}
                                 />
                                 <PatientBackgroundSection
                                     visitData={form.visitData}
@@ -423,6 +723,7 @@ const MedicalRecordPage = () => {
                         {viewMode === VIEW.CHART && selectedVisit && (
                             <VisitChartDetail
                                 selectedVisit={selectedVisit}
+                                patient={patient}
                                 onBack={() => setViewMode(VIEW.HISTORY)}
                             />
                         )}
@@ -434,6 +735,17 @@ const MedicalRecordPage = () => {
                     )}
                 </div>
             </div>
+
+            <AISuggestionDrawer
+                isOpen={aiDrawerOpen}
+                onClose={() => setAiDrawerOpen(false)}
+                suggestion={aiSuggestion}
+                isLoading={aiLoading}
+                onApply={(decisionData) => {
+                    form.applyAISuggestions(decisionData);
+                    setAiDrawerOpen(false);
+                }}
+            />
         </Layout>
     );
 };
