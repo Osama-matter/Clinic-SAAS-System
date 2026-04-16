@@ -1,10 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import { medicalPatientService } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { useLanguage } from "../context/LanguageContext";
+import { queryKeys, usePatientsQuery } from "../hooks/queries";
+import { useInfinitePagination } from "../hooks/useInfinitePagination";
 import {
   AlertCircle,
   Calendar,
@@ -197,8 +200,6 @@ const parseQrContent = (rawValue) => {
 const PatientsPage = () => {
   const { isAdmin, isReceptionist, isDoctor } = useAuth();
   const { t, lang, isRtl } = useLanguage();
-  const [patients, setPatients] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -219,17 +220,17 @@ const PatientsPage = () => {
   const handlingScanResultRef = useRef(false);
   const isStaff = isAdmin || isReceptionist || isDoctor;
   const isAr = lang === "ar";
+  const queryClient = useQueryClient();
+  const patientsQuery = usePatientsQuery(isStaff);
+  const patients = patientsQuery.data || [];
+  const loading = patientsQuery.isLoading && patients.length === 0;
+  const refreshing = patientsQuery.isFetching && patients.length > 0;
+  const deferredSearch = useDeferredValue(search);
   const scannerSupported =
     typeof window !== "undefined" &&
     "BarcodeDetector" in window &&
     typeof navigator !== "undefined" &&
     !!navigator.mediaDevices?.getUserMedia;
-
-  useEffect(() => {
-    if (isStaff) {
-      loadPatients();
-    }
-  }, [isStaff]);
 
   useEffect(() => {
     if (!showScanner) {
@@ -281,17 +282,55 @@ const PatientsPage = () => {
     setManualQrValue("");
   };
 
-  const loadPatients = async () => {
-    setLoading(true);
-    try {
-      const res = await medicalPatientService.getAll();
-      setPatients(res.data || []);
-    } catch {
-      toast.error(isAr ? "فشل تحميل سجلات المرضى." : "Failed to load patient records.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const createPatientMutation = useMutation({
+    mutationFn: (payload) => medicalPatientService.create(payload),
+    onSuccess: (response, payload) => {
+      const createdPatient = response?.data || {
+        ...payload,
+        id: `temp-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(queryKeys.patients, (current = []) => [createdPatient, ...current]);
+    },
+  });
+
+  const updatePatientMutation = useMutation({
+    mutationFn: ({ id, payload }) => medicalPatientService.update(id, { id, ...payload }),
+    onSuccess: (response, variables) => {
+      const updatedPatient = response?.data || { id: variables.id, ...variables.payload };
+
+      queryClient.setQueryData(queryKeys.patients, (current = []) =>
+        current.map((patient) =>
+          patient.id === variables.id ? { ...patient, ...updatedPatient } : patient
+        )
+      );
+    },
+  });
+
+  const deletePatientMutation = useMutation({
+    mutationFn: (id) => medicalPatientService.delete(id),
+    onMutate: async (id) => {
+      setDeletingId(id);
+      await queryClient.cancelQueries({ queryKey: queryKeys.patients });
+      const previousPatients = queryClient.getQueryData(queryKeys.patients) || [];
+
+      queryClient.setQueryData(queryKeys.patients, (current = []) =>
+        current.filter((patient) => patient.id !== id)
+      );
+
+      return { previousPatients };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previousPatients) {
+        queryClient.setQueryData(queryKeys.patients, context.previousPatients);
+      }
+    },
+    onSettled: () => {
+      setDeletingId(null);
+      setConfirmDelete(null);
+    },
+  });
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
@@ -337,8 +376,7 @@ const PatientsPage = () => {
     setProcessingScan(true);
 
     try {
-      await medicalPatientService.create(createPatientPayload(payload));
-      await loadPatients();
+      await createPatientMutation.mutateAsync(createPatientPayload(payload));
       closeScanner();
       toast.success(
         isAr ? "تمت إضافة المريض من الـ QR بنجاح." : "Patient created from QR successfully."
@@ -474,15 +512,14 @@ const PatientsPage = () => {
 
     try {
       if (modalMode === "add") {
-        await medicalPatientService.create(payload);
+        await createPatientMutation.mutateAsync(payload);
         toast.success(isAr ? "تمت إضافة المريض بنجاح" : "Patient added successfully");
       } else {
-        await medicalPatientService.update(editingId, { id: editingId, ...payload });
+        await updatePatientMutation.mutateAsync({ id: editingId, payload });
         toast.success(isAr ? "تم تحديث بيانات المريض" : "Patient updated successfully");
       }
 
       setShowModal(false);
-      await loadPatients();
     } catch {
       toast.error(isAr ? "حدث خطأ، حاول مرة أخرى" : "Something went wrong, please try again");
     } finally {
@@ -491,26 +528,29 @@ const PatientsPage = () => {
   };
 
   const handleDelete = async (id) => {
-    setDeletingId(id);
-
     try {
-      await medicalPatientService.delete(id);
+      await deletePatientMutation.mutateAsync(id);
       toast.success(isAr ? "تم حذف المريض بنجاح" : "Patient deleted successfully");
-      setPatients((prev) => prev.filter((patient) => patient.id !== id));
     } catch {
       toast.error(isAr ? "فشل حذف المريض" : "Failed to delete patient");
-    } finally {
-      setDeletingId(null);
-      setConfirmDelete(null);
     }
   };
 
-  const filteredPatients = patients.filter(
-    (patient) =>
-      patient.name?.toLowerCase().includes(search.toLowerCase()) ||
-      patient.email?.toLowerCase().includes(search.toLowerCase()) ||
-      (patient.phone || patient.phoneNumber)?.includes(search)
+  const filteredPatients = useMemo(
+    () =>
+      patients.filter(
+        (patient) =>
+          patient.name?.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+          patient.email?.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+          (patient.phone || patient.phoneNumber)?.includes(deferredSearch)
+      ),
+    [patients, deferredSearch]
   );
+  const {
+    visibleItems: visiblePatients,
+    hasMore: hasMorePatients,
+    loadMoreRef: patientsLoadMoreRef,
+  } = useInfinitePagination(filteredPatients, 24);
 
   const inputCls =
     "w-full px-4 py-3 bg-surface border border-outline rounded-xl text-sm font-semibold text-on-surface focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-slate-400";
@@ -558,6 +598,12 @@ const PatientsPage = () => {
               className={`w-full ${isRtl ? "pr-12 pl-5" : "pl-12 pr-5"} py-4 bg-surface border border-outline rounded-2xl text-sm font-bold text-on-surface focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-slate-400 shadow-inner`}
             />
           </div>
+          {refreshing && (
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 px-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {isAr ? "تحديث..." : "Refreshing..."}
+            </div>
+          )}
         </div>
 
         {!loading && filteredPatients.length > 0 && (
@@ -611,7 +657,7 @@ const PatientsPage = () => {
         ) : (
           <>
             <div className="flex flex-col gap-3 lg:hidden">
-              {filteredPatients.map((patient) => (
+              {visiblePatients.map((patient) => (
                 <div
                   key={patient.id}
                   className="bg-surface border border-outline rounded-[1.5rem] overflow-hidden transition-all hover:shadow-md hover:border-primary/20 group"
@@ -682,7 +728,7 @@ const PatientsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline/50">
-                  {filteredPatients.map((patient) => (
+                  {visiblePatients.map((patient) => (
                     <tr key={patient.id} className="hover:bg-primary/[0.03] transition-colors group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
@@ -768,6 +814,14 @@ const PatientsPage = () => {
                 </tbody>
               </table>
             </div>
+            {hasMorePatients && (
+              <div ref={patientsLoadMoreRef} className="flex items-center justify-center py-6">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-alt border border-outline text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {isAr ? "تحميل المزيد" : "Loading more"}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

@@ -1,13 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { appointmentService, doctorService } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
-import { Calendar, Clock, User, Phone, CheckCircle2, ChevronRight, Edit2, Loader2, Save, X, Stethoscope } from "lucide-react";
+import { Calendar, Clock, User, Phone, CheckCircle2, ChevronRight, Edit2, Loader2, Save, X, Stethoscope, AlertTriangle } from "lucide-react";
 
 import { useLanguage } from "../context/LanguageContext";
+import DoctorPatientDrawer from "../components/doctor/DoctorPatientDrawer";
+import { getDoctorActivity, hasActiveVisitForPatient } from "../lib/doctorActivity";
+
+const STATUS_UI = {
+  waiting: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  inProgress: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  done: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  canceled: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  late: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+};
+
+const normalizePhone = (raw) => `${raw || ""}`.replace(/[^\d+]/g, "");
 
 const DoctorSchedulePage = () => {
+  const navigate = useNavigate();
   const { isAdmin, isDoctor, isReceptionist } = useAuth();
   const { t, lang, isRtl } = useLanguage();
   const [appointments, setAppointments] = useState([]);
@@ -17,8 +31,17 @@ const DoctorSchedulePage = () => {
   const [tempNote, setTempNote] = useState("");
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [filter, setFilter] = useState("Today"); // Today | MyPatients | Confirmed | Late | Completed
+  const [drawerAppt, setDrawerAppt] = useState(null);
 
   const isAr = lang === "ar";
+  const activity = getDoctorActivity();
+  const myPatientPhones = useMemo(() => {
+    const phones = (activity.recentPatients || [])
+      .map((p) => normalizePhone(p.phone))
+      .filter(Boolean);
+    return new Set(phones);
+  }, [activity]);
 
   const loadSchedule = async (date, doctorId = selectedDoctorId) => {
     try {
@@ -105,6 +128,50 @@ const DoctorSchedulePage = () => {
     4: { label: t('statusCompleted'), color: "bg-primary/10 text-primary border-primary/20" },
     5: { label: t('statusNoShow'), color: "bg-slate-500/10 text-slate-400 border-slate-500/20" },
   };
+
+  const computeUiStatus = (appt) => {
+    const slotTime = new Date(appt.slotDateTime).getTime();
+    const now = Date.now();
+    const graceMs = 10 * 60 * 1000;
+
+    if (appt.status === 2 || appt.status === 5) return "canceled";
+    if (appt.status === 4) return "done";
+
+    const inProgress = hasActiveVisitForPatient({ patientPhone: normalizePhone(appt.patientPhone) });
+    if (inProgress) return "inProgress";
+
+    const active = appt.status === 0 || appt.status === 1 || appt.status === 3;
+    if (active && slotTime < now - graceMs) return "late";
+    if (active && slotTime <= now) return "waiting";
+
+    return "waiting";
+  };
+
+  const filteredAppointments = useMemo(() => {
+    const base = [...appointments];
+    const now = Date.now();
+    const graceMs = 10 * 60 * 1000;
+
+    if (filter === "Today") return base;
+    if (filter === "Confirmed") return base.filter((a) => a.status === 1);
+    if (filter === "Completed") return base.filter((a) => a.status === 4);
+    if (filter === "Late") {
+      return base.filter((a) => {
+        const active = a.status === 0 || a.status === 1 || a.status === 3;
+        return active && new Date(a.slotDateTime).getTime() < now - graceMs;
+      });
+    }
+    if (filter === "MyPatients") {
+      return base.filter((a) => myPatientPhones.has(normalizePhone(a.patientPhone)));
+    }
+
+    return base;
+  }, [appointments, filter, myPatientPhones]);
+
+  const displayAppointments = useMemo(
+    () => filteredAppointments.filter((a) => !selectedDoctorId || a.doctorId === selectedDoctorId),
+    [filteredAppointments, selectedDoctorId]
+  );
 
   const nextDay = () => { const d = new Date(dateObj); d.setDate(d.getDate() + 1); setDateObj(d); };
   const prevDay = () => { const d = new Date(dateObj); d.setDate(d.getDate() - 1); setDateObj(d); };

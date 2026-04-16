@@ -1,8 +1,9 @@
 import React from "react";
 import {
     Activity, FileText, FileSearch, Pill, Trash2, Edit,
-    ImageIcon, User, Clock, AlertCircle, ChevronDown, Calendar
+    ImageIcon, User, Clock, AlertCircle, ChevronDown, Loader2
 } from "lucide-react";
+import { useInfinitePagination } from "../../hooks/useInfinitePagination";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,13 @@ function VisitMeta({ doctorId, visitId, hasImages }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, handleDeleteVisit }) => {
+    const sorted = [...visits].sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
+    const {
+        visibleItems: visibleVisits,
+        hasMore: hasMoreVisits,
+        loadMoreRef: visitsLoadMoreRef,
+    } = useInfinitePagination(sorted, 8);
+
     if (visits.length === 0) {
         return (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/30 py-20 text-center">
@@ -157,14 +165,12 @@ const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, 
         );
     }
 
-    const sorted = [...visits].sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
-
     return (
         <div className="relative space-y-4 pb-8">
             {/* Timeline rail */}
             <div className="absolute left-[39px] top-5 bottom-0 w-px bg-gradient-to-b from-border/60 to-transparent hidden sm:block" />
 
-            {sorted.map((v, idx) => {
+            {visibleVisits.map((v, idx) => {
                 const date      = formatVisitDate(v.visitDate);
                 const typeConf  = getTypeConfig(v.visitType);
                 const isEmergency = v.visitType === 3;
@@ -271,6 +277,15 @@ const VisitHistoryList = ({ visits, loadingChart, openFullChart, openEditVisit, 
                     </div>
                 );
             })}
+
+            {hasMoreVisits && (
+                <div ref={visitsLoadMoreRef} className="flex items-center justify-center py-4">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-secondary/60 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading more visits
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

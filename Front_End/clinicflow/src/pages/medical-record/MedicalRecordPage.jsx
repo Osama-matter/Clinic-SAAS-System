@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useEffect, useState, useCallback } from "react";
+import { useLocation, useParams, Link } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { ArrowLeft, Plus, Activity, FileDown } from "lucide-react";
+import { recordFileOpen, recordPatientOpen, recordVisitSessionComplete, recordVisitSessionStart } from "../../lib/doctorActivity";
 
 // ─── Local imports ────────────────────────────────────────────────────────────
 import { usePatientRecord }  from "./usePatientRecord";
@@ -177,6 +178,8 @@ function VitalsSidebar({ latestVitals, visits }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 const MedicalRecordPage = () => {
     const { id } = useParams();
+    const location = useLocation();
+    const startVisitFromLink = new URLSearchParams(location.search || "").get("start") === "1";
 
     // ── Data layer ──
     const record = usePatientRecord(id);
@@ -195,7 +198,7 @@ const MedicalRecordPage = () => {
     const form = useMedicalForm({ patient, visits, doctors });
 
     // ── View state ──
-    const [viewMode, setViewMode]       = useState(VIEW.HISTORY);
+    const [viewMode, setViewMode]       = useState(startVisitFromLink ? VIEW.NEW : VIEW.HISTORY);
     const [selectedVisit, setSelectedVisit] = useState(null);
     const [submitting, setSubmitting]   = useState(false);
 
@@ -234,8 +237,16 @@ const MedicalRecordPage = () => {
 
     // ── Generate prescription PDF ──
     const handleGeneratePdf = useCallback(async () => {
-        await generateLatestMedicationPdf();
-    }, [generateLatestMedicationPdf]);
+        const ok = await generateLatestMedicationPdf();
+        if (ok && patient?.id) {
+            recordFileOpen({
+                id: `pdf-medication-${patient.id}-${Date.now()}`,
+                title: "Medication & Administration",
+                kind: "pdf",
+                patientId: patient.id,
+            });
+        }
+    }, [generateLatestMedicationPdf, patient]);
 
     // ── Submit visit form (new or edit) ──
     const handleSubmitVisit = useCallback(async (e) => {
@@ -243,11 +254,27 @@ const MedicalRecordPage = () => {
         setSubmitting(true);
         try {
             const ok = await form.submitVisit({ patientId: id, viewMode, onSuccessReload: reload });
-            if (ok) setViewMode(VIEW.HISTORY);
+            if (ok) {
+                recordVisitSessionComplete(id);
+                setViewMode(VIEW.HISTORY);
+            }
         } finally {
             setSubmitting(false);
         }
     }, [form, id, viewMode, reload]);
+
+    useEffect(() => {
+        if (patient?.id) {
+            recordPatientOpen(patient);
+        }
+    }, [patient]);
+
+    useEffect(() => {
+        if (!patient?.id) return;
+        if (viewMode === VIEW.NEW || viewMode === VIEW.EDIT) {
+            recordVisitSessionStart({ patientId: patient.id, patientName: patient.name, patientPhone: patient.phone });
+        }
+    }, [patient, viewMode]);
 
     // ─── Loading / not found states ──────────────────────────────────────────
     if (loading)
