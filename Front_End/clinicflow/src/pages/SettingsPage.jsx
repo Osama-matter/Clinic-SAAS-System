@@ -188,25 +188,49 @@ const SettingsPage = () => {
     <Layout title={t('settings')}>
       <div className="max-w-2xl mx-auto space-y-10 pb-24" dir={isRtl ? "rtl" : "ltr"}>
         
-        {/* Expiry Warning Banner */}
-        {sub?.isExpiringSoon && sub?.status !== 2 && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-800/40 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+        {/* Expiry Warning / Expired Banner */}
+        {sub && (sub.status !== 1) && (
+          <div className={`border rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500 ${
+            (sub.daysRemaining ?? 0) <= 0
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+          }`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              (sub.daysRemaining ?? 0) <= 0
+                ? 'bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400'
+                : 'bg-amber-100 dark:bg-amber-800/40 text-amber-600 dark:text-amber-400'
+            }`}>
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="flex-1 text-center sm:text-left rtl:sm:text-right">
-              <h3 className="font-bold text-amber-900 dark:text-amber-100">
-                {isAr ? "اشتراكك ينتهي قريباً!" : "Your subscription is expiring soon!"}
+              <h3 className={`font-bold ${
+                (sub.daysRemaining ?? 0) <= 0
+                  ? 'text-red-900 dark:text-red-100'
+                  : 'text-amber-900 dark:text-amber-100'
+              }`}>
+                {(sub.daysRemaining ?? 0) <= 0
+                  ? (isAr ? "انتهى اشتراكك!" : "Your subscription has expired!")
+                  : (isAr ? "اشتراكك ينتهي قريباً!" : "Your subscription is expiring soon!")}
               </h3>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                {isAr 
-                  ? `بقي ${sub.daysRemaining} أيام فقط. قم بالتجديد الآن لتجنب انقطاع الخدمة.`
-                  : `Only ${sub.daysRemaining} days remaining. Renew now to avoid any service interruption.`}
+              <p className={`text-sm mt-1 ${
+                (sub.daysRemaining ?? 0) <= 0
+                  ? 'text-red-700 dark:text-red-300'
+                  : 'text-amber-700 dark:text-amber-300'
+              }`}>
+                {(sub.daysRemaining ?? 0) <= 0
+                  ? (isAr ? "يرجى تجديد اشتراكك لاستعادة الخدمة." : "Please renew your subscription to restore service.")
+                  : (isAr
+                      ? `بقي ${sub.daysRemaining} أيام فقط. قم بالتجديد الآن لتجنب انقطاع الخدمة.`
+                      : `Only ${sub.daysRemaining} days remaining. Renew now to avoid any service interruption.`)}
               </p>
             </div>
-            <button 
+            <button
               onClick={openUpgrade}
-              className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-amber-600/20 hover:shadow-amber-600/40 shrink-0"
+              className={`px-6 py-3 text-white text-sm font-bold rounded-xl transition-all shadow-lg shrink-0 ${
+                (sub.daysRemaining ?? 0) <= 0
+                  ? 'bg-red-600 hover:bg-red-700 shadow-red-600/20 hover:shadow-red-600/40'
+                  : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20 hover:shadow-amber-600/40'
+              }`}
             >
               {isAr ? "تجديد الآن" : "Renew Now"}
             </button>
@@ -280,33 +304,59 @@ const SettingsPage = () => {
 
             {sub && (
               <div className="relative z-10 space-y-8 animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
+                {/* compute derived display values */}
+                {(() => {
+                  const rawDays = sub.daysRemaining ?? 0;
+                  const isExpired = rawDays <= 0 || sub.status === 3;
+                  const displayDays = isExpired
+                    ? (isAr ? "منتهي" : "Expired")
+                    : rawDays;
+                  const daysHighlight = isExpired
+                    ? "expired"
+                    : sub.isExpiringSoon
+                    ? "soon"
+                    : "ok";
+                  const cards = [
                     {
                       icon: <Calendar className="w-5 h-5" />,
                       label: isAr ? "تاريخ الانتهاء" : "Expiry Date",
                       value: sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB") : "—",
+                      variant: isExpired ? "expired" : "ok",
                     },
                     {
                       icon: <Clock className="w-5 h-5" />,
                       label: isAr ? "الأيام المتبقية" : "Days Left",
-                      value: sub.daysRemaining ?? "—",
-                      highlight: sub.isExpiringSoon,
+                      value: displayDays,
+                      variant: daysHighlight,
                     },
                     {
                       icon: <CreditCard className="w-5 h-5" />,
                       label: isAr ? "التكلفة" : "Amount",
                       value: sub.paidAmount != null ? `${sub.paidAmount} EGP` : "—",
+                      variant: "ok",
                     },
-                  ].map((item) => (
-                    <div key={item.label} className={`bg-surface-alt border rounded-2xl p-5 flex flex-col items-start gap-2 shadow-sm transition-all hover:border-primary/30 ${item.highlight ? "border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-800" : "border-outline"}`}>
-                      <div className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest ${item.highlight ? "text-amber-600 dark:text-amber-400" : "text-slate-400"}`}>
-                        {item.icon} <span className="mt-0.5">{item.label}</span>
-                      </div>
-                      <div className={`text-xl font-black ${item.highlight ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-white"}`}>{item.value}</div>
+                  ];
+                  const variantStyles = {
+                    ok:      { card: "border-outline",                                                             text: "text-slate-400",              val: "text-slate-800 dark:text-white" },
+                    soon:    { card: "border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-800", text: "text-amber-600 dark:text-amber-400", val: "text-amber-600 dark:text-amber-400" },
+                    expired: { card: "border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-800",         text: "text-red-500 dark:text-red-400",     val: "text-red-500 dark:text-red-400" },
+                  };
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {cards.map((item) => {
+                        const vs = variantStyles[item.variant] || variantStyles.ok;
+                        return (
+                          <div key={item.label} className={`bg-surface-alt border rounded-2xl p-5 flex flex-col items-start gap-2 shadow-sm transition-all hover:border-primary/30 ${vs.card}`}>
+                            <div className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest ${vs.text}`}>
+                              {item.icon} <span className="mt-0.5">{item.label}</span>
+                            </div>
+                            <div className={`text-xl font-black ${vs.val}`}>{item.value}</div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
                 <div className="space-y-6 pt-2 border-t border-outline">
                   <div className="flex items-center justify-between">

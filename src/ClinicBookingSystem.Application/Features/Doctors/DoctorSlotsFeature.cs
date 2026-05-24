@@ -2,6 +2,7 @@ using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace ClinicBookingSystem.Application.Features.Doctors;
 
@@ -26,36 +27,49 @@ public class GetAvailableSlotsQueryHandler : IRequestHandler<GetAvailableSlotsQu
         if (!doctor.IsActive)
             return Enumerable.Empty<TimeSlotDto>();
 
-        // Get schedule for the requested day of week
-        var dayOfWeek = (ClinicBookingSystem.Domain.Enums.DayOfWeek)request.Date.DayOfWeek;
-        var schedules = await _uow.Schedules.GetAllAsync(
-            s => s.DoctorId == request.DoctorId && s.DayOfWeek == (System.DayOfWeek)dayOfWeek,
-            cancellationToken);
+        // Get schedule for the requested day of week - use integer comparison for robustness
+        var dayOfWeekInt = (int)request.Date.DayOfWeek;
+        var schedules = await _uow.Schedules
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted
+                && s.DoctorId == request.DoctorId
+                && (int)s.DayOfWeek == dayOfWeekInt)
+            .ToListAsync(cancellationToken);
 
-        var scheduleList = schedules.ToList();
-        if (!scheduleList.Any())
+        if (!schedules.Any())
             return Enumerable.Empty<TimeSlotDto>();
 
         // Get blocked slots for the date
         var dateStart = request.Date.Date;
-        var dateEnd = dateStart.AddDays(1);
-        var blockedSlots = await _uow.BlockedSlots.GetAllAsync(
-            b => b.DoctorId == request.DoctorId && b.StartTime < dateEnd && b.EndTime > dateStart,
-            cancellationToken);
-        var blockedList = blockedSlots.ToList();
+        var dateEnd = dateStart.AddDays(1); 
+        var blockedList = await _uow.BlockedSlots
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(b => !b.IsDeleted
+                && b.DoctorId == request.DoctorId
+                && b.StartTime < dateEnd
+                && b.EndTime > dateStart)
+            .ToListAsync(cancellationToken);
 
         // Get existing appointments for the date
-        var existingAppointments = await _uow.Appointments.GetAllAsync(
-            a => a.DoctorId == request.DoctorId
-                && a.SlotDateTime >= dateStart && a.SlotDateTime < dateEnd
-                && a.Status != Domain.Enums.AppointmentStatus.Cancelled,
-            cancellationToken);
-        var bookedSlots = existingAppointments.Select(a => a.SlotDateTime).ToHashSet();
+        var bookedSlotsList = await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(a => !a.IsDeleted
+                && a.DoctorId == request.DoctorId
+                && a.SlotDateTime >= dateStart
+                && a.SlotDateTime < dateEnd
+                && a.Status != Domain.Enums.AppointmentStatus.Cancelled)
+            .Select(a => a.SlotDateTime)
+            .ToListAsync(cancellationToken);
+
+        var bookedSlots = bookedSlotsList.ToHashSet();
 
         // Generate time slots
         var slots = new List<TimeSlotDto>();
 
-        foreach (var schedule in scheduleList)
+        foreach (var schedule in schedules)
         {
             var currentTime = dateStart.Add(schedule.StartTime);
             var endTime = dateStart.Add(schedule.EndTime);

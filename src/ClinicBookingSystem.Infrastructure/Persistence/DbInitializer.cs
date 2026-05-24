@@ -9,7 +9,7 @@ namespace ClinicBookingSystem.Infrastructure.Persistence;
 
 public static class DbInitializer
 {
-    public static async Task SeedAsync(ApplicationDbContext context)
+    public static async Task SeedAsync(ApplicationDbContext context, string? webRootPath = null)
     {
         // Seed Tenant
         var defaultTenant = await context.Tenants.FirstOrDefaultAsync(t => t.Name == "Default Clinic");
@@ -66,6 +66,7 @@ public static class DbInitializer
         await SeedFeaturesAsync(context);
         await SeedPlansAsync(context);
         await SeedDrugsAsync(context);
+        await MigrateBase64TenantImagesAsync(context, webRootPath);
     }
 
     private static async Task SeedFeaturesAsync(ApplicationDbContext context)
@@ -221,5 +222,72 @@ public static class DbInitializer
             return string.Empty;
 
         return header.Trim().ToLowerInvariant();
+    }
+
+    private static async Task MigrateBase64TenantImagesAsync(ApplicationDbContext context, string? webRootPath)
+    {
+        if (string.IsNullOrEmpty(webRootPath))
+            return;
+
+        var tenants = await context.Tenants
+            .Where(t => 
+                (t.LogoUrl != null && t.LogoUrl.StartsWith("data:image/")) ||
+                (t.ClinicImageUrl != null && t.ClinicImageUrl.StartsWith("data:image/")) ||
+                (t.DoctorImageUrl != null && t.DoctorImageUrl.StartsWith("data:image/")))
+            .ToListAsync();
+
+        if (!tenants.Any())
+            return;
+
+        var uploadPath = Path.Combine(webRootPath, "uploads", "clinics");
+        if (!Directory.Exists(uploadPath))
+        {
+            Directory.CreateDirectory(uploadPath);
+        }
+
+        foreach (var tenant in tenants)
+        {
+            tenant.LogoUrl = ConvertAndSaveBase64(tenant.LogoUrl, uploadPath);
+            tenant.ClinicImageUrl = ConvertAndSaveBase64(tenant.ClinicImageUrl, uploadPath);
+            tenant.DoctorImageUrl = ConvertAndSaveBase64(tenant.DoctorImageUrl, uploadPath);
+
+            context.Tenants.Update(tenant);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    private static string? ConvertAndSaveBase64(string? base64String, string uploadPath)
+    {
+        if (string.IsNullOrWhiteSpace(base64String) || !base64String.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            return base64String;
+
+        try
+        {
+            var parts = base64String.Split(',');
+            if (parts.Length < 2) return base64String;
+
+            var header = parts[0];
+            var base64Data = parts[1];
+
+            var extension = "png";
+            if (header.Contains("image/jpeg") || header.Contains("image/jpg"))
+                extension = "jpg";
+            else if (header.Contains("image/webp"))
+                extension = "webp";
+            else if (header.Contains("image/gif"))
+                extension = "gif";
+
+            var bytes = Convert.FromBase64String(base64Data);
+            var uniqueFileName = $"{Guid.NewGuid()}.{extension}";
+            var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+            File.WriteAllBytes(filePath, bytes);
+            return $"/uploads/clinics/{uniqueFileName}";
+        }
+        catch
+        {
+            return base64String; // fallback to raw base64 if decoding fails
+        }
     }
 }

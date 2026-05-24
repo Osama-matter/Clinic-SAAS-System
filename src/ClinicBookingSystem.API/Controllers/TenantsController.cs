@@ -19,6 +19,7 @@ public class TenantsController : ControllerBase
     }
 
     /// <summary>Get all active clinics (public)</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TenantDto>>> GetAll()
     {
@@ -26,6 +27,7 @@ public class TenantsController : ControllerBase
     }
 
     /// <summary>Get all clinics summary (optimized for performance)</summary>
+    [AllowAnonymous]
     [HttpGet("summary")]
     public async Task<ActionResult<IEnumerable<TenantSummaryDto>>> GetSummary()
     {

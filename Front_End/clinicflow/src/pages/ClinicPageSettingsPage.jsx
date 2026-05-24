@@ -159,13 +159,14 @@ const ClinicPageSettingsPage = () => {
       // 2. Compress the image
       const compressedFile = await imageCompression(file, options);
       
-      // 3. Convert to Data URL
-      const dataUrl = await readFileAsDataUrl(compressedFile);
-      handleChange(field, dataUrl);
-      toast.success(isAr ? "تم تحسين الصورة بنجاح" : "Image optimized successfully", { id: tid });
+      // 3. Upload to server
+      const res = await clinicService.uploadImage(compressedFile);
+      const imageUrl = res.data.imageUrl;
+      handleChange(field, imageUrl);
+      toast.success(isAr ? "تم تحميل الصورة بنجاح" : "Image uploaded successfully", { id: tid });
     } catch (error) {
-      console.error("Compression error:", error);
-      toast.error(isAr ? "تعذر معالجة الملف." : "Could not process the file.", { id: tid });
+      console.error("Upload/Compression error:", error);
+      toast.error(isAr ? "تعذر تحميل أو معالجة الملف." : "Could not process or upload the file.", { id: tid });
     }
   };
 

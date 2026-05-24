@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // ─── Base config ─────────────────────────────────────────────────────────────
-const defaultApiBaseUrl = "https://royalclinic.runasp.net/api";
+const defaultApiBaseUrl = "https://localhost:49965/api";
 const rawApiBaseUrl = (process.env.REACT_APP_API_URL || "").trim();
 
 const normalizeApiBaseUrl = (value) => {
@@ -66,6 +66,13 @@ export const clinicService = {
   getPublicProfile: (subdomain) => api.get(`/Tenants/public/${subdomain}`),
   getPublicProfileImages: (subdomain) => api.get(`/Tenants/public/${subdomain}/images`),
   updateMyPage: (data) => api.put("/Tenants/my-page", data),
+  uploadImage: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/uploads/clinic-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+  },
   setSelectedClinicId: (id) => localStorage.setItem("clinicflow_tenantId", id),
   getSelectedClinicId: () => localStorage.getItem("clinicflow_tenantId"),
   clearSelectedClinic: () => localStorage.removeItem("clinicflow_tenantId"),

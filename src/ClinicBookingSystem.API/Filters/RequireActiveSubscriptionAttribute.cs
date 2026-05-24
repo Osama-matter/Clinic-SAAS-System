@@ -14,7 +14,8 @@ public class RequireActiveSubscriptionAttribute : Attribute, IAsyncActionFilter
         var tenantProvider = context.HttpContext.RequestServices.GetRequiredService<ITenantProvider>();
         var planService = context.HttpContext.RequestServices.GetRequiredService<IPlanService>();
 
-        if (tenantProvider.Role == UserRole.SuperAdmin)
+        if (tenantProvider.Role == UserRole.SuperAdmin || 
+            context.ActionDescriptor.EndpointMetadata.Any(em => em is Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute))
         {
             await next();
             return;

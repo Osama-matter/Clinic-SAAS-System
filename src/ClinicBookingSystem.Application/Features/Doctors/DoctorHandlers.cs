@@ -136,10 +136,15 @@ public class DoctorHandlers :
     public async Task<IEnumerable<DoctorDto>> Handle(GetDoctorsQuery request, CancellationToken cancellationToken)
     {
         var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
-        
-        // Final fallback security: filter by tenant unless SuperAdmin
-        var doctors = await _uow.Doctors.GetAllAsync(d => 
-            isSuperAdmin || d.TenantId == _currentUser.TenantId, 
+
+        var tenantId = _currentUser.TenantId;
+        if (!isSuperAdmin && !tenantId.HasValue)
+            throw new DomainException("Tenant ID is required.");
+
+        var doctors = await _uow.Doctors.GetAllAsync(d =>
+            (!tenantId.HasValue ? isSuperAdmin : d.TenantId == tenantId.Value)
+            && (string.IsNullOrWhiteSpace(request.Specialty) || d.Specialty == request.Specialty)
+            && (!request.IsActive.HasValue || d.IsActive == request.IsActive.Value),
             cancellationToken);
 
         return doctors.Select(MapToDto);

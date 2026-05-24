@@ -20,6 +20,7 @@ public class DoctorsController : ControllerBase
     }
 
     /// <summary>Get all doctors (public)</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<DoctorDto>>> GetAll([FromQuery] string? specialty, [FromQuery] bool? isActive)
     {
@@ -27,6 +28,7 @@ public class DoctorsController : ControllerBase
     }
 
     /// <summary>Get doctor by ID (public)</summary>
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<ActionResult<DoctorDto>> GetById(Guid id)
     {
@@ -34,6 +36,7 @@ public class DoctorsController : ControllerBase
     }
 
     /// <summary>Get available time slots for a doctor on a given date (public)</summary>
+    [AllowAnonymous]
     [HttpGet("{id}/slots")]
     [ProducesResponseType(typeof(IEnumerable<TimeSlotDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<TimeSlotDto>>> GetAvailableSlots(Guid id, [FromQuery] DateOnly date)
