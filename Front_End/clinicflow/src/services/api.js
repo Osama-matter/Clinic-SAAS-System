@@ -336,7 +336,7 @@ export const notificationService = {
 };
 
 export const medicalPatientService = {
-  getAll: () => api.get("/Patients"),
+  getAll: (params) => api.get("/Patients", { params }),
   getById: (id) => api.get(`/Patients/${id}`),
   create: (data) => api.post("/Patients", data),
   update: (id, data) => api.put(`/Patients/${id}`, data),

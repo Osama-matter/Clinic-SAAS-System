@@ -772,10 +772,10 @@ const PatientsPage = () => {
                           <Calendar className="w-4 h-4 opacity-30 text-primary" />
                           {patient.createdAt
                             ? new Date(patient.createdAt).toLocaleDateString(lang, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
                             : "-"}
                         </div>
                       </td>

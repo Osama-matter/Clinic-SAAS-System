@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import {
   appointmentService,
   doctorService,
@@ -58,16 +58,37 @@ export function useDashboardStatsQuery({ enabled, roleKey, isStaff, isPatient })
   });
 }
 
-export function usePatientsQuery(enabled = true) {
+export function usePatientsQuery(enabled = true, page = 1, pageSize = 24, searchTerm = "") {
   return useQuery({
-    queryKey: queryKeys.patients,
+    queryKey: [...queryKeys.patients, page, pageSize, searchTerm],
     enabled,
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const response = await medicalPatientService.getAll();
-      return Array.isArray(response.data) ? response.data : [];
+      const response = await medicalPatientService.getAll({ page, pageSize, searchTerm });
+      return response.data;
+    },
+  });
+}
+
+export function useInfinitePatientsQuery(enabled = true, searchTerm = "") {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.patients, "infinite", searchTerm],
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await medicalPatientService.getAll({ 
+        page: pageParam, 
+        pageSize: 24, 
+        searchTerm 
+      });
+      return response.data;
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page < Math.ceil(lastPage.totalCount / lastPage.pageSize)) {
+        return lastPage.page + 1;
+      }
+      return undefined;
     },
   });
 }

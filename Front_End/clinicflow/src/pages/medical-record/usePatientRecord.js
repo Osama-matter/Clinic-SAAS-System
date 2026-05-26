@@ -10,9 +10,9 @@ import { authService } from "../../services/api";
  */
 export function usePatientRecord(patientId) {
     const [patient, setPatient] = useState(null);
-    const [visits, setVisits]   = useState([]);
+    const [visits, setVisits] = useState([]);
     const [doctors, setDoctors] = useState([]);
-    const [clinic, setClinic]   = useState(null);
+    const [clinic, setClinic] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadingChart, setLoadingChart] = useState(false);
     const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -25,7 +25,7 @@ export function usePatientRecord(patientId) {
             setLoading(false);
             return;
         }
-        
+
         try {
             const [patientRes, visitsRes] = await Promise.all([
                 medicalPatientService.getById(patientId),

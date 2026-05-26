@@ -310,8 +310,8 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
         ? "إلغاء تنشيط"
         : "deactivate"
       : isAr
-      ? "تنشيط"
-      : "activate";
+        ? "تنشيط"
+        : "activate";
     if (
       !window.confirm(
         isAr
@@ -447,28 +447,28 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
             {/* Quick stats strip */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
               {[
-                { 
-                  label: isAr ? "إجمالي العيادات" : "Total Clinics", 
-                  value: saasStats?.totalClinics ?? 0, 
-                  color: "text-blue-400", 
+                {
+                  label: isAr ? "إجمالي العيادات" : "Total Clinics",
+                  value: saasStats?.totalClinics ?? 0,
+                  color: "text-blue-400",
                   icon: <Building2 className="h-4 w-4" />,
                   trend: saasStats?.newClinicsThisMonth > 0 ? `+${saasStats.newClinicsThisMonth}` : null
                 },
-                { 
-                  label: isAr ? "إجمالي الدخل" : "All-time Revenue", 
-                   value: `${saasStats?.totalRevenue?.toLocaleString() ?? 0} EGP`, 
+                {
+                  label: isAr ? "إجمالي الدخل" : "All-time Revenue",
+                  value: `${saasStats?.totalRevenue?.toLocaleString() ?? 0} EGP`,
                   color: "text-emerald-400",
                   icon: <BadgeDollarSign className="h-4 w-4" />
                 },
-                { 
-                  label: isAr ? "الدخل الشهري" : "Active MRR", 
-                  value: `${saasStats?.monthlyRecurringRevenue?.toLocaleString() ?? 0} EGP`, 
+                {
+                  label: isAr ? "الدخل الشهري" : "Active MRR",
+                  value: `${saasStats?.monthlyRecurringRevenue?.toLocaleString() ?? 0} EGP`,
                   color: "text-primary",
                   icon: <TrendingUp className="h-4 w-4" />
                 },
-                { 
-                  label: isAr ? "ينتهي قريباً" : "Expiring Soon", 
-                  value: saasStats?.expiringSoonCount ?? 0, 
+                {
+                  label: isAr ? "ينتهي قريباً" : "Expiring Soon",
+                  value: saasStats?.expiringSoonCount ?? 0,
                   color: "text-rose-400",
                   icon: <AlertCircle className="h-4 w-4" />,
                   alert: saasStats?.expiringSoonCount > 0
@@ -511,8 +511,8 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                   ? "إضافة باقة"
                   : "Create Plan"
                 : isAr
-                ? "تحديث"
-                : "Refresh"}
+                  ? "تحديث"
+                  : "Refresh"}
             </span>
           </button>
         </div>
@@ -547,21 +547,19 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`relative flex flex-1 sm:flex-none items-center justify-center gap-2.5 rounded-xl px-6 py-3 text-xs font-black uppercase tracking-widest transition-all duration-300 ${
-              activeTab === tab.key
+            className={`relative flex flex-1 sm:flex-none items-center justify-center gap-2.5 rounded-xl px-6 py-3 text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab.key
                 ? "bg-gradient-to-r from-primary to-blue-400 text-white shadow-lg shadow-primary/30"
                 : "text-slate-400 hover:bg-white/5 hover:text-white"
-            }`}
+              }`}
           >
             {tab.icon}
             {tab.label}
             {tab.count !== undefined && (
               <span
-                className={`rounded-full px-2 py-0.5 text-[9px] font-black ${
-                  activeTab === tab.key
+                className={`rounded-full px-2 py-0.5 text-[9px] font-black ${activeTab === tab.key
                     ? "bg-white/20 text-white"
                     : "bg-slate-700 text-slate-400"
-                }`}
+                  }`}
               >
                 {tab.count}
               </span>
@@ -569,7 +567,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
           </button>
         ))}
       </div>
-      
+
       {/* ═══ PLANS TAB ════════════════════════════════════════════════════════ */}
       {activeTab === "plans" && (
         <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-2 xl:grid-cols-3">
@@ -673,9 +671,8 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                         {item.label}
                       </span>
                       <span
-                        className={`text-sm font-black ${
-                          item.value == null ? "text-slate-500 italic" : "text-white"
-                        }`}
+                        className={`text-sm font-black ${item.value == null ? "text-slate-500 italic" : "text-white"
+                          }`}
                       >
                         {formatLimit(item.value, isAr)}
                       </span>
@@ -729,7 +726,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                   return (
                     <div key={idx} className="flex-1 flex flex-col items-center gap-4 group">
                       <div className="relative w-full flex items-end justify-center">
-                        <div 
+                        <div
                           className="w-full sm:w-12 bg-gradient-to-t from-primary to-blue-400 rounded-t-xl transition-all duration-700 group-hover:from-primary/80 group-hover:to-blue-300"
                           style={{ height: `${Math.max(height, 5)}%` }}
                         >
@@ -769,14 +766,14 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
       {/* ═══ PAYMENTS TAB ══════════════════════════════════════════════════════ */}
       {activeTab === "payments" && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <div className="overflow-hidden rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
+          <div className="overflow-hidden rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
             <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
               <h3 className="text-lg font-black text-white">{isAr ? "حركات الدفع" : "Transaction History"}</h3>
               <div className="flex items-center gap-2">
-                 <CreditCard className="h-5 w-5 text-primary" />
+                <CreditCard className="h-5 w-5 text-primary" />
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
@@ -805,9 +802,8 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                          tx.status === 2 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                        }`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${tx.status === 2 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                          }`}>
                           <div className={`h-1 w-1 rounded-full ${tx.status === 2 ? "bg-emerald-400" : "bg-rose-400"}`} />
                           {tx.status === 2 ? (isAr ? "ناجح" : "Success") : (isAr ? "فشل" : "Failed")}
                         </span>
@@ -1001,7 +997,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                               <span className="text-white">{item.current} / {item.max}</span>
                             </div>
                             <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                              <motion.div 
+                              <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${percent}%` }}
                                 transition={{ duration: 1, delay: 0.2 }}
@@ -1032,7 +1028,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2">
-                       <button
+                      <button
                         onClick={() => openSubscriptionModal(clinic, subscription)}
                         disabled={!subscription}
                         className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20 transition-all hover:bg-amber-500 hover:text-white hover:ring-0 hover:shadow-lg hover:shadow-amber-500/30 active:scale-[0.95] disabled:opacity-30"
@@ -1049,19 +1045,18 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                       </button>
                       <button
                         onClick={() => toggleClinicActive(clinic)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 transition-all active:scale-[0.95] ${
-                          clinic.isActive
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 transition-all active:scale-[0.95] ${clinic.isActive
                             ? "bg-rose-500/10 text-rose-400 ring-rose-500/20 hover:bg-rose-500 hover:text-white hover:ring-0 hover:shadow-lg hover:shadow-rose-500/30"
                             : "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20 hover:bg-emerald-500 hover:text-white hover:ring-0 hover:shadow-lg hover:shadow-emerald-500/30"
-                        }`}
+                          }`}
                         title={
                           clinic.isActive
                             ? isAr
                               ? "إلغاء تنشيط"
                               : "Deactivate"
                             : isAr
-                            ? "تنشيط"
-                            : "Activate"
+                              ? "تنشيط"
+                              : "Activate"
                         }
                       >
                         <Shield className="h-4 w-4" />
@@ -1092,8 +1087,8 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
               ? "تعديل باقة"
               : "Edit Plan"
             : isAr
-            ? "إضافة باقة جديدة"
-            : "Create New Plan"
+              ? "إضافة باقة جديدة"
+              : "Create New Plan"
         }
       >
         <form onSubmit={savePlan} className="space-y-6">
@@ -1302,7 +1297,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
         title={isAr ? `إدارة اشتراك: ${managedSub?.clinicName}` : `Manage Subscription: ${managedSub?.clinicName}`}
       >
         <form onSubmit={saveSubscriptionOverride} className="space-y-6">
-           <div className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 {isAr ? "الباقة" : "Subscription Plan"}
@@ -1314,7 +1309,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
                 required
               >
                 {plans.map(p => (
-                   <option key={p.id} value={p.id} className="bg-slate-900">{p.name} - {p.price} EGP</option>
+                  <option key={p.id} value={p.id} className="bg-slate-900">{p.name} - {p.price} EGP</option>
                 ))}
               </select>
             </div>

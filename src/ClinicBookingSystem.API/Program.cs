@@ -14,7 +14,11 @@ builder.Host.UseSerilog((ctx, lc) => lc
     .WriteTo.File("logs/eams-.txt", rollingInterval: RollingInterval.Day));
 
 // ── Services ─────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddApplicationServices();
