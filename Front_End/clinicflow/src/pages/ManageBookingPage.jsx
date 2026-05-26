@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { appointmentService } from "../services/api";
+import { appointmentService, clinicService } from "../services/api";
 import { toast } from "react-hot-toast";
 import { useLanguage } from "../context/LanguageContext";
 import {
@@ -144,6 +144,21 @@ const ManageBookingPage = () => {
   const [lastSearch, setLastSearch] = useState(emptyForm);
   const clinicSlug = searchParams.get("clinic");
   const homePath = clinicSlug ? `/clinic/${encodeURIComponent(clinicSlug)}` : "/";
+
+  useEffect(() => {
+    const setTenantFromClinicSlug = async () => {
+      if (!clinicSlug) return;
+
+      try {
+        const res = await clinicService.getPublicProfile(clinicSlug);
+        if (res?.data?.id) clinicService.setSelectedClinicId(res.data.id);
+      } catch {
+        // ignore
+      }
+    };
+
+    setTenantFromClinicSlug();
+  }, [clinicSlug]);
 
   const hasAnySearchValue = useMemo(
     () => formData.name.trim() || formData.phone.trim() || formData.bookingReference.trim(),

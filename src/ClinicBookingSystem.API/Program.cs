@@ -93,7 +93,9 @@ if (runStartupTasks)
             
             // Seed Data
             Log.Information("Seeding database check...");
-            await ClinicBookingSystem.Infrastructure.Persistence.DbInitializer.SeedAsync(db);
+            var env = services.GetRequiredService<IWebHostEnvironment>();
+            var webRoot = env.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+            await ClinicBookingSystem.Infrastructure.Persistence.DbInitializer.SeedAsync(db, webRoot);
             
             // Recurring Jobs
             Log.Information("Registering recurring jobs...");

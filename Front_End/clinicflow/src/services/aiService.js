@@ -3,17 +3,18 @@
  * Service for interacting with Google Gemini API to provide clinical suggestions.
  */
 
+// API key is loaded from .env.local (git-ignored, never hardcoded in source).
+// Create a .env.local file with: REACT_APP_GEMINI_API_KEY=your_key_here
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const MODEL_FALLBACKS = [
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
+    "gemini-2.0-flash",
     "gemini-1.5-flash",
     "gemini-1.5-pro",
     "gemini-flash-latest"
 ];
 
-// Try stable v1 first, fallback to v1beta if needed in the logic
-const getApiUrl = (model, version = "v1") => `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${API_KEY}`;
+// Use v1 or v1beta depending on the model availability
+const getApiUrl = (model, version = "v1") => `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent`;
 
 /**
  * Generates a structured clinical visit proposal based on patient context.
@@ -66,7 +67,10 @@ RULES:
                 console.log(`[AI] Attempting generation with ${model} (${version})...`);
                 const response = await fetch(getApiUrl(model, version), {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": API_KEY
+                    },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
                     })
@@ -75,7 +79,7 @@ RULES:
                 if (!response.ok) {
                     const errorData = await response.json();
                     const msg = errorData.error?.message || "AI Request failed";
-                    
+
                     // If 404, we try the next version/model
                     if (response.status === 404) {
                         console.warn(`[AI] Model ${model} not found on ${version}.`);
@@ -87,10 +91,10 @@ RULES:
 
                 const data = await response.json();
                 let textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                
+
                 // Clean markdown JSON wrapping if present
                 textResponse = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
-                
+
                 return JSON.parse(textResponse);
             } catch (error) {
                 lastError = error;

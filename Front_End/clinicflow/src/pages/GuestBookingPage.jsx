@@ -104,7 +104,8 @@ const GuestBookingPage = () => {
             clinicService.setSelectedClinicId(matchedClinic.id);
             setStep(2);
             const doctorPromise = doctorService.getAll().then((doctorRes) => {
-              setDoctors(doctorRes.data || []);
+              const doctorList = doctorRes.data || [];
+              setDoctors(doctorList.filter((doctor) => doctor?.tenantId === matchedClinic.id));
               return doctorRes;
             });
             await doctorPromise;
@@ -122,11 +123,19 @@ const GuestBookingPage = () => {
     loadClinics();
   }, [clinicSlug, isAr]);
 
-  const loadDoctors = async () => {
+  // Pass clinicOverride to avoid stale-closure bug: React state updates are async,
+  // so selectedClinic may still hold the previous value when called from handleClinicSelect.
+  const loadDoctors = async (clinicOverride) => {
     try {
       setLoading(true);
       const res = await doctorService.getAll();
-      setDoctors(res.data || []);
+      const doctorList = res.data || [];
+      const effectiveClinic = clinicOverride ?? selectedClinic;
+      setDoctors(
+        effectiveClinic?.id
+          ? doctorList.filter((doctor) => doctor?.tenantId === effectiveClinic.id)
+          : doctorList
+      );
     } catch {
       toast.error(isAr ? "فشل تحميل الأطباء" : "Failed to load doctors");
     } finally {
@@ -137,7 +146,7 @@ const GuestBookingPage = () => {
   const loadSlots = async (doctorId, dateValue) => {
     try {
       setLoading(true);
-      const dateParam = dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`;
+      const dateParam = dateValue.includes("T") ? dateValue.split("T")[0] : dateValue;
       const res = await doctorService.getAvailableSlots(doctorId, { date: dateParam });
       setSlots(res.data || []);
     } catch {
@@ -157,7 +166,30 @@ const GuestBookingPage = () => {
     setSelectedClinic(clinic);
     clinicService.setSelectedClinicId(clinic.id);
     setStep(2);
-    await loadDoctors();
+    // Pass clinic directly to avoid stale selectedClinic closure
+    await loadDoctors(clinic);
+  };
+
+  const handleBookAnother = () => {
+    // Reset all booking state so the user can make a fresh appointment
+    setBookingResult(null);
+    setSelectedDoctor(null);
+    setSelectedSlot(null);
+    setSelectedDate(new Date().toISOString().split("T")[0]);
+    setFormData({ name: "", phone: "", email: "", notes: "" });
+    setSlots([]);
+
+    if (clinicSlug && selectedClinic) {
+      // Clinic is locked by URL — skip clinic selection, go straight to doctor step
+      setStep(2);
+      loadDoctors(selectedClinic);
+    } else {
+      // Free flow — let user pick a clinic again
+      setSelectedClinic(null);
+      clinicService.clearSelectedClinic();
+      setDoctors([]);
+      setStep(1);
+    }
   };
 
   const handleDateChange = (value) => {
@@ -247,13 +279,13 @@ const GuestBookingPage = () => {
                           )}
                         </div>
                         <h3 className="text-lg font-black text-slate-900 transition-colors group-hover:text-primary">{clinic.name}</h3>
-                      <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{clinic.subdomain || "General Service"}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                        <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{clinic.subdomain || "General Service"}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {step === 2 && (
               <div className="space-y-6">
@@ -331,11 +363,10 @@ const GuestBookingPage = () => {
                           key={option.value}
                           type="button"
                           onClick={() => handleDateChange(option.value)}
-                          className={`min-w-[96px] rounded-2xl border px-4 py-3 text-center transition-all ${
-                            isSelectedDate
+                          className={`min-w-[96px] rounded-2xl border px-4 py-3 text-center transition-all ${isSelectedDate
                               ? "border-primary bg-primary text-white shadow-lg shadow-primary/25"
                               : "border-slate-200 bg-white text-slate-700 hover:border-primary/40 hover:text-primary"
-                          }`}
+                            }`}
                         >
                           <div className="text-[11px] font-black uppercase tracking-[0.14em]">
                             {option.isToday ? (isAr ? "اليوم" : "Today") : option.dayLabel}
@@ -377,13 +408,12 @@ const GuestBookingPage = () => {
                           key={index}
                           disabled={!slot.isAvailable}
                           onClick={() => setSelectedSlot(slot)}
-                          className={`rounded-2xl border p-4 text-sm font-black transition-all ${
-                            !slot.isAvailable
+                          className={`rounded-2xl border p-4 text-sm font-black transition-all ${!slot.isAvailable
                               ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-300"
                               : isSelected
                                 ? "border-primary bg-primary text-white shadow-lg shadow-primary/25"
                                 : "border-slate-200 bg-white text-slate-700 hover:border-primary hover:text-primary"
-                          }`}
+                            }`}
                         >
                           {time}
                         </button>
@@ -554,40 +584,46 @@ const GuestBookingPage = () => {
                       )}
                     </div>
 
-                  <div className="mt-4 rounded-2xl bg-slate-950 px-4 py-4 text-white">
-                    <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-blue-200">
-                      <ScanLine className="h-3.5 w-3.5" />
-                      {isAr ? "للاستقبال" : "For Reception"}
-                    </p>
-                    <p className="text-sm font-medium leading-6 text-slate-200">
-                      {isAr ? "عند مسح الرمز سيفتح الحجز مباشرة في صفحة الاستعلام مع المرجع ورقم الهاتف." : "Scanning this code opens the booking lookup page with the reference and phone already filled in."}
-                    </p>
-                  </div>
+                    <div className="mt-4 rounded-2xl bg-slate-950 px-4 py-4 text-white">
+                      <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-blue-200">
+                        <ScanLine className="h-3.5 w-3.5" />
+                        {isAr ? "للاستقبال" : "For Reception"}
+                      </p>
+                      <p className="text-sm font-medium leading-6 text-slate-200">
+                        {isAr ? "عند مسح الرمز سيفتح الحجز مباشرة في صفحة الاستعلام مع المرجع ورقم الهاتف." : "Scanning this code opens the booking lookup page with the reference and phone already filled in."}
+                      </p>
+                    </div>
 
-                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-start dark:border-amber-500/20 dark:bg-amber-500/10">
-                    <p className="text-sm font-black text-amber-800 dark:text-amber-200">
-                      {isAr ? "مهم: احتفظ برمز QR ومرجع الحجز تحسبًا لأي مشكلة أو عند الوصول للعيادة." : "Important: Keep the QR and booking reference in case of any issue or when you arrive at the clinic."}
-                    </p>
-                  </div>
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-start dark:border-amber-500/20 dark:bg-amber-500/10">
+                      <p className="text-sm font-black text-amber-800 dark:text-amber-200">
+                        {isAr ? "مهم: احتفظ برمز QR ومرجع الحجز تحسبًا لأي مشكلة أو عند الوصول للعيادة." : "Important: Keep the QR and booking reference in case of any issue or when you arrive at the clinic."}
+                      </p>
+                    </div>
 
-                  {qrImageUrl && (
-                    <a
-                      href={qrImageUrl}
-                      download={qrDownloadName}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition-all hover:-translate-y-0.5 hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                    >
-                      {isAr ? "تنزيل رمز QR" : "Download QR"}
-                    </a>
-                  )}
+                    {qrImageUrl && (
+                      <a
+                        href={qrImageUrl}
+                        download={qrDownloadName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition-all hover:-translate-y-0.5 hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                      >
+                        {isAr ? "تنزيل رمز QR" : "Download QR"}
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
 
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                   <Link to={homePath} className="rounded-2xl border border-slate-200 bg-white px-8 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                     {t("backToHome")}
                   </Link>
+                  <button
+                    onClick={handleBookAnother}
+                    className="rounded-2xl border-2 border-primary px-8 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-primary hover:bg-primary hover:text-white transition-colors"
+                  >
+                    {isAr ? "حجز موعد آخر" : "Book Another Appointment"}
+                  </button>
                   <Link
                     to={`/appointments/lookup?ref=${encodeURIComponent(bookingResult.bookingReference)}&phone=${encodeURIComponent(formData.phone || "")}&name=${encodeURIComponent(formData.name || "")}${clinicSlug ? `&clinic=${encodeURIComponent(clinicSlug)}` : ""}`}
                     className="rounded-2xl bg-primary px-8 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-primary/25"

@@ -4,6 +4,7 @@ using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
 using Hangfire;
+using Microsoft.EntityFrameworkCore;
 using MediatR;
 
 namespace ClinicBookingSystem.Application.Features.Appointments;
@@ -120,23 +121,29 @@ public class BookAppointmentCommandHandler : IRequestHandler<BookAppointmentComm
         await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count, cancellationToken);
 
         // Check if doctor has a schedule for this day
-        var schedules = await _uow.Schedules.GetAllAsync(
-            s => s.DoctorId == request.DoctorId && s.DayOfWeek == request.SlotDateTime.DayOfWeek,
-            cancellationToken);
+        var dayOfWeekInt = (int)request.SlotDateTime.DayOfWeek;
+        var schedules = await _uow.Schedules
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted && s.DoctorId == request.DoctorId && (int)s.DayOfWeek == dayOfWeekInt)
+            .ToListAsync(cancellationToken);
 
-        var schedule = schedules.FirstOrDefault();
-        if (schedule == null)
+        if (!schedules.Any())
             throw new DomainException("Doctor is not available on this day.");
 
-        // Check if requested time falls within working hours
+        // Check if requested time falls within ANY working hours shift
         var timeOfDay = request.SlotDateTime.TimeOfDay;
-        if (timeOfDay < schedule.StartTime || timeOfDay >= schedule.EndTime)
+        var isInWorkingHours = schedules.Any(s => timeOfDay >= s.StartTime && timeOfDay < s.EndTime);
+        if (!isInWorkingHours)
             throw new DomainException("The requested slot is outside the doctor's working hours.");
 
         // Check for blocked slots
-        if (await _uow.BlockedSlots.AnyAsync(
-            b => b.DoctorId == request.DoctorId && request.SlotDateTime >= b.StartTime && request.SlotDateTime < b.EndTime,
-            cancellationToken))
+        if (await _uow.BlockedSlots
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                b => !b.IsDeleted && b.DoctorId == request.DoctorId && request.SlotDateTime >= b.StartTime && request.SlotDateTime < b.EndTime,
+                cancellationToken))
             throw new SchedulingConflictException("This time slot is blocked.");
 
         // Check for existing appointments at this slot (Doctor side)
@@ -247,42 +254,58 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
             throw new DomainException("Cannot book an appointment in the past.");
 
         await _saas.CheckFeatureEnabledAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.OnlineBooking, cancellationToken);
-        var count = await _uow.Appointments.CountAsync(a => a.TenantId == doctor.TenantId, cancellationToken);
+        
+        var count = await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .CountAsync(a => !a.IsDeleted && a.TenantId == doctor.TenantId, cancellationToken);
+            
         await _saas.CheckLimitAsync(ClinicBookingSystem.Application.Interfaces.SaaSFeatureCodes.AppointmentsLimit, count, cancellationToken);
 
         // Check if doctor has a schedule for this day
-        var schedules = await _uow.Schedules.GetAllAsync(
-            s => s.DoctorId == request.DoctorId && s.DayOfWeek == request.SlotDateTime.DayOfWeek,
-            cancellationToken);
+        var dayOfWeekInt = (int)request.SlotDateTime.DayOfWeek;
+        var schedules = await _uow.Schedules
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(s => !s.IsDeleted && s.DoctorId == request.DoctorId && (int)s.DayOfWeek == dayOfWeekInt)
+            .ToListAsync(cancellationToken);
 
-        var schedule = schedules.FirstOrDefault();
-        if (schedule == null)
+        if (!schedules.Any())
             throw new DomainException("Doctor is not available on this day.");
 
-        // Check if requested time falls within working hours
+        // Check if requested time falls within ANY working hours shift
         var timeOfDay = request.SlotDateTime.TimeOfDay;
-        if (timeOfDay < schedule.StartTime || timeOfDay >= schedule.EndTime)
+        var isInWorkingHours = schedules.Any(s => timeOfDay >= s.StartTime && timeOfDay < s.EndTime);
+        if (!isInWorkingHours)
             throw new DomainException("The requested slot is outside the doctor's working hours.");
 
         // Check for blocked slots
-        var isBlocked = await _uow.BlockedSlots.GetAllAsync(
-            b => b.DoctorId == request.DoctorId && request.SlotDateTime >= b.StartTime && request.SlotDateTime < b.EndTime,
-            cancellationToken);
+        var isBlocked = await _uow.BlockedSlots
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(b => !b.IsDeleted && b.DoctorId == request.DoctorId && request.SlotDateTime >= b.StartTime && request.SlotDateTime < b.EndTime)
+            .ToListAsync(cancellationToken);
 
         if (isBlocked.Any())
             throw new SchedulingConflictException("This time slot is blocked.");
 
         // Check for existing appointments at this slot (Doctor side)
-        if (await _uow.Appointments.AnyAsync(
-            a => a.DoctorId == request.DoctorId && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
-            cancellationToken))
+        if (await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                a => !a.IsDeleted && a.DoctorId == request.DoctorId && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
+                cancellationToken))
             throw new SchedulingConflictException("This doctor is already booked for this slot.");
 
         // Check for existing appointments at this slot (Patient side - Guest)
-        if (await _uow.Appointments.AnyAsync(
-            a => (a.PatientPhone == request.PatientPhone || a.PatientEmail == request.PatientEmail) 
-                && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
-            cancellationToken))
+        if (await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                a => !a.IsDeleted && (a.PatientPhone == request.PatientPhone || a.PatientEmail == request.PatientEmail) 
+                    && a.SlotDateTime == request.SlotDateTime && a.Status != AppointmentStatus.Cancelled,
+                cancellationToken))
             throw new SchedulingConflictException("An appointment with this phone or email already exists at this time.");
 
         var bookingRef = Guid.NewGuid().ToString("N")[..12].ToUpper();
@@ -359,9 +382,11 @@ public class PublicCancelAppointmentCommandHandler : IRequestHandler<PublicCance
 
     public async Task<Unit> Handle(PublicCancelAppointmentCommand request, CancellationToken cancellationToken)
     {
-        var appointments = await _uow.Appointments.GetAllAsync(
-            a => a.BookingReference == request.BookingReference,
-            cancellationToken);
+        var appointments = await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(a => !a.IsDeleted && a.BookingReference == request.BookingReference)
+            .ToListAsync(cancellationToken);
 
         var appointment = appointments.FirstOrDefault()
             ?? throw new NotFoundException("Appointment", request.BookingReference);
@@ -419,15 +444,21 @@ public class PublicRescheduleAppointmentCommandHandler : IRequestHandler<PublicR
             throw new DomainException("Cannot reschedule an appointment to a time in the past.");
 
         // Check new slot availability
-        if (await _uow.BlockedSlots.AnyAsync(
-            b => b.DoctorId == appointment.DoctorId && request.NewSlotDateTime >= b.StartTime && request.NewSlotDateTime < b.EndTime,
-            cancellationToken))
+        if (await _uow.BlockedSlots
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                b => !b.IsDeleted && b.DoctorId == appointment.DoctorId && request.NewSlotDateTime >= b.StartTime && request.NewSlotDateTime < b.EndTime,
+                cancellationToken))
             throw new SchedulingConflictException("The new time slot is blocked.");
 
-        if (await _uow.Appointments.AnyAsync(
-            a => a.DoctorId == appointment.DoctorId && a.SlotDateTime == request.NewSlotDateTime
-                && a.Status != AppointmentStatus.Cancelled && a.Id != appointment.Id,
-            cancellationToken))
+        if (await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                a => !a.IsDeleted && a.DoctorId == appointment.DoctorId && a.SlotDateTime == request.NewSlotDateTime
+                    && a.Status != AppointmentStatus.Cancelled && a.Id != appointment.Id,
+                cancellationToken))
             throw new SchedulingConflictException("The new slot is already booked.");
 
         // Store old slot for logging/notification if needed
@@ -492,11 +523,14 @@ public class LookupAppointmentByReferenceQueryHandler : IRequestHandler<LookupAp
         if (!hasRef && !hasPhone)
             throw new DomainException("Please provide a booking reference or a phone number.");
 
-        var appointments = await _uow.Appointments.GetAllAsync(
-            a => (!hasRef || a.BookingReference == request.BookingReference) &&
-                 (!hasPhone || a.PatientPhone == request.Phone || a.User.PhoneNumber == request.Phone),
-            cancellationToken,
-            a => a.Doctor);
+        var appointments = await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(a => !a.IsDeleted && 
+                 (!hasRef || a.BookingReference == request.BookingReference) &&
+                 (!hasPhone || a.PatientPhone == request.Phone || a.User.PhoneNumber == request.Phone))
+            .Include(a => a.Doctor)
+            .ToListAsync(cancellationToken);
 
         var appointment = appointments.OrderByDescending(a => a.CreatedAt).FirstOrDefault()
             ?? throw new NotFoundException("Appointment", request.BookingReference ?? request.Phone ?? "");
@@ -530,15 +564,17 @@ public class SearchPublicAppointmentsQueryHandler : IRequestHandler<SearchPublic
         var normalizedName = request.Name?.Trim().ToLowerInvariant();
         var normalizedPhone = request.Phone?.Trim();
 
-        var appointments = await _uow.Appointments.GetAllAsync(
-            a =>
-                (!hasPhone || a.PatientPhone == normalizedPhone || a.User!.PhoneNumber == normalizedPhone) &&
+        var appointments = await _uow.Appointments
+            .AsQueryable()
+            .IgnoreQueryFilters()
+            .Where(a => !a.IsDeleted &&
+                (!hasPhone || a.PatientPhone == normalizedPhone || (a.User != null && a.User.PhoneNumber == normalizedPhone)) &&
                 (!hasName ||
                     (a.PatientName != null && a.PatientName.ToLower().Contains(normalizedName!)) ||
-                    (a.User != null && a.User.Name.ToLower().Contains(normalizedName!))),
-            cancellationToken,
-            a => a.Doctor,
-            a => a.User);
+                    (a.User != null && a.User.Name.ToLower().Contains(normalizedName!))))
+            .Include(a => a.Doctor)
+            .Include(a => a.User)
+            .ToListAsync(cancellationToken);
 
         return appointments
             .OrderByDescending(a => a.CreatedAt)
