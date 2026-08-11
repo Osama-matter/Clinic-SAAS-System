@@ -1,13 +1,12 @@
 using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Application.Models.Payments.Fawaterak;
 using ClinicBookingSystem.Domain.Interfaces;
 using ClinicBookingSystem.Infrastructure.Identity;
+using ClinicBookingSystem.Infrastructure.Payments.Fawaterak;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using ClinicBookingSystem.Infrastructure.Persistence.Repositories;
-using ClinicBookingSystem.Infrastructure.Settings;
-using ClinicBookingSystem.Infrastructure.Payments.Fawaterak;
 using ClinicBookingSystem.Infrastructure.Services;
-using ClinicBookingSystem.Application.Interfaces;
-using ClinicBookingSystem.Application.Models.Payments.Fawaterak;
+using ClinicBookingSystem.Infrastructure.Settings;
 using FluentValidation;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -41,7 +40,6 @@ public static class ServiceExtensions
 
         services.AddHttpClient();
 
-
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ITenantProvider, TenantProvider>();
         services.AddScoped<ITokenService, TokenService>();
@@ -51,6 +49,8 @@ public static class ServiceExtensions
         services.AddScoped<IPlanService, PlanService>();
         services.AddScoped<ISaaSEnforcementService, SaaSEnforcementService>();
         services.AddScoped<IFawaterakPaymentService, FawaterakPaymentService>();
+        services.AddScoped<ISchedulingService, SchedulingService>();
+        services.AddScoped<IAppointmentNotificationService, AppointmentNotificationService>();
         services.AddMemoryCache();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -67,9 +67,6 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration config)
     {
-        // Don't clear maps yet, let's be explicit in the validation parameters
-        // System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
-
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(opt =>
             {
@@ -83,7 +80,7 @@ public static class ServiceExtensions
                     ValidAudience = config["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(config["Jwt:Secret"]!)),
-                    RoleClaimType = ClaimTypes.Role, // Use standard Microsoft Role claim
+                    RoleClaimType = ClaimTypes.Role,
                     NameClaimType = ClaimTypes.NameIdentifier
                 };
             });

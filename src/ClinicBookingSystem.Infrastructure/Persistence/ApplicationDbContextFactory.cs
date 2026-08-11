@@ -22,7 +22,7 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
             .Build();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? "Server=localhost;Database=ClnicSaas;Trusted_Connection=True;TrustServerCertificate=True;";
+            ?? "Server=localhost;Database=ClinicSAASSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 
         optionsBuilder.UseSqlServer(connectionString);
 

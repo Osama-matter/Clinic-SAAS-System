@@ -28,9 +28,11 @@ public class FeedbackJob
 
         // Find appointments marked as Completed within the last 24 hours that haven't received a feedback email yet
         var completedAppointments = await _context.Appointments
+            .IgnoreQueryFilters()
             .Include(a => a.User)
             .Include(a => a.Doctor)
-            .Where(a => a.Status == AppointmentStatus.Completed
+            .Where(a => !a.IsDeleted
+                && a.Status == AppointmentStatus.Completed
                 && a.UpdatedAt >= past24h)
             .ToListAsync();
 
@@ -40,9 +42,11 @@ public class FeedbackJob
             if (string.IsNullOrEmpty(email)) continue;
 
             // Check if we already sent a feedback request for this appointment
-            var alreadySent = await _context.Notifications.AnyAsync(n =>
-                n.UserId == (appt.UserId ?? Guid.Empty)
-                && n.Message.Contains($"Feedback-{appt.Id}"));
+            var alreadySent = await _context.Notifications
+                .IgnoreQueryFilters()
+                .AnyAsync(n => !n.IsDeleted
+                    && n.UserId == (appt.UserId ?? Guid.Empty)
+                    && n.Message.Contains($"Feedback-{appt.Id}"));
 
             if (alreadySent) continue;
 

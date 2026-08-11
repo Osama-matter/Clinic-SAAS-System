@@ -1,3 +1,4 @@
+using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
@@ -9,21 +10,25 @@ public class DoctorHandlers :
     IRequestHandler<CreateDoctorCommand, DoctorDto>,
     IRequestHandler<UpdateDoctorCommand, DoctorDto>,
     IRequestHandler<DeleteDoctorCommand, Unit>,
+    IRequestHandler<UploadDoctorPhotoCommand, DoctorDto>,
     IRequestHandler<GetDoctorByIdQuery, DoctorDto>,
     IRequestHandler<GetDoctorsQuery, IEnumerable<DoctorDto>>
 {
     private readonly IUnitOfWork _uow;
-    private readonly ClinicBookingSystem.Application.Interfaces.ICurrentUserService _currentUser;
-    private readonly ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService _saas;
+    private readonly ICurrentUserService _currentUser;
+    private readonly ISaaSEnforcementService _saas;
+    private readonly IFileService _fileService;
 
     public DoctorHandlers(
         IUnitOfWork uow,
-        ClinicBookingSystem.Application.Interfaces.ICurrentUserService currentUser,
-        ClinicBookingSystem.Application.Interfaces.ISaaSEnforcementService saas)
+        ICurrentUserService currentUser,
+        ISaaSEnforcementService saas,
+        IFileService fileService)
     {
         _uow = uow;
         _currentUser = currentUser;
         _saas = saas;
+        _fileService = fileService;
     }
 
     public async Task<DoctorDto> Handle(CreateDoctorCommand request, CancellationToken cancellationToken)
@@ -123,6 +128,31 @@ public class DoctorHandlers :
         await _uow.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;
+    }
+
+    public async Task<DoctorDto> Handle(UploadDoctorPhotoCommand request, CancellationToken cancellationToken)
+    {
+        var doctor = await _uow.Doctors.GetByIdAsync(request.DoctorId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Doctor), request.DoctorId);
+
+        var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
+        var isClinicAdmin = (_currentUser.Role == "2" || _currentUser.Role == "Admin") && _currentUser.TenantId == doctor.TenantId;
+
+        if (!isSuperAdmin && !isClinicAdmin)
+            throw new UnauthorizedActionException("You don't have permission to update this doctor.");
+
+        if (!string.IsNullOrWhiteSpace(doctor.Photo))
+        {
+            _fileService.DeleteFile(doctor.Photo);
+        }
+
+        var photoUrl = await _fileService.SaveFileAsync(request.FileStream, request.FileName, "doctors", cancellationToken);
+        doctor.Photo = photoUrl;
+
+        await _uow.Doctors.UpdateAsync(doctor, cancellationToken);
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(doctor);
     }
 
     public async Task<DoctorDto> Handle(GetDoctorByIdQuery request, CancellationToken cancellationToken)

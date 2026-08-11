@@ -13,6 +13,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Email).IsRequired().HasMaxLength(200);
         builder.HasIndex(u => u.Email).IsUnique();
         builder.HasIndex(u => u.TenantId);
+        builder.HasIndex(u => new { u.TenantId, u.Email });
+        builder.HasIndex(u => new { u.TenantId, u.Role });
         builder.Property(u => u.PasswordHash).IsRequired();
         builder.HasQueryFilter(u => !u.IsDeleted);
     }
@@ -28,6 +30,9 @@ public class PatientAppointmentConfiguration : IEntityTypeConfiguration<PatientA
         builder.Property(a => a.BookingReference).IsRequired().HasMaxLength(20);
         builder.HasIndex(a => a.BookingReference).IsUnique();
         builder.HasIndex(a => a.TenantId);
+        builder.HasIndex(a => new { a.TenantId, a.DoctorId, a.SlotDateTime });
+        builder.HasIndex(a => new { a.TenantId, a.Status, a.SlotDateTime });
+        builder.HasIndex(a => new { a.TenantId, a.BookingReference });
 
         // Guest patient fields
         builder.Property(a => a.PatientName).HasMaxLength(100);
@@ -60,6 +65,7 @@ public class ScheduleConfiguration : IEntityTypeConfiguration<Schedule>
         builder.HasKey(s => s.Id);
         builder.HasOne(s => s.Doctor).WithMany(d => d.Schedules).HasForeignKey(s => s.DoctorId);
         builder.HasIndex(s => s.TenantId);
+        builder.HasIndex(s => new { s.TenantId, s.DoctorId, s.DayOfWeek });
     }
 }
 
@@ -70,6 +76,7 @@ public class BlockedSlotConfiguration : IEntityTypeConfiguration<BlockedSlot>
         builder.HasKey(b => b.Id);
         builder.HasOne(b => b.Doctor).WithMany(d => d.BlockedSlots).HasForeignKey(b => b.DoctorId);
         builder.HasIndex(b => b.TenantId);
+        builder.HasIndex(b => new { b.TenantId, b.DoctorId, b.StartTime, b.EndTime });
     }
 }
 
@@ -80,6 +87,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         builder.HasKey(n => n.Id);
         builder.HasOne(n => n.User).WithMany(u => u.Notifications).HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(n => n.TenantId);
+        builder.HasIndex(n => new { n.TenantId, n.UserId, n.IsRead });
     }
 }
 

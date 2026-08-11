@@ -37,6 +37,8 @@ public record UpdateDoctorCommand(
 
 public record DeleteDoctorCommand(Guid Id) : IRequest<Unit>;
 
+public record UploadDoctorPhotoCommand(Guid DoctorId, System.IO.Stream FileStream, string FileName) : IRequest<DoctorDto>;
+
 // ── Queries ───────────────────────────────────────────
 public record GetDoctorByIdQuery(Guid Id) : IRequest<DoctorDto>;
 public record GetDoctorsQuery(string? Specialty, bool? IsActive) : IRequest<IEnumerable<DoctorDto>>;

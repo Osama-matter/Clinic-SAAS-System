@@ -39,9 +39,11 @@ const GlobalSearchModal = ({ isOpen, onClose }) => {
                 // In a real system, we'd use a server-side search param
                 // Here we fetch and filter for simulation of global search
                 const res = await medicalPatientService.getAll();
-                const filtered = res.data.filter(p => 
-                    p.name.toLowerCase().includes(query.toLowerCase()) ||
-                    p.phoneNumber?.includes(query)
+                const rawData = res.data;
+                const list = Array.isArray(rawData) ? rawData : rawData?.items || [];
+                const filtered = list.filter(p => 
+                    p.name?.toLowerCase().includes(query.toLowerCase()) ||
+                    (p.phone || p.phoneNumber)?.includes(query)
                 ).slice(0, 5);
                 setResults(filtered);
             } catch (error) {

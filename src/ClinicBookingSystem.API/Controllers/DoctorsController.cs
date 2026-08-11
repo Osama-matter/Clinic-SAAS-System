@@ -62,38 +62,24 @@ public class DoctorsController : ControllerBase
     }
 
     [Authorize(Policy = "AdminOnly")]
-    [HttpPost("{id}/photo")]
-    public async Task<ActionResult<DoctorDto>> UploadPhoto(Guid id, IFormFile file, [FromServices] IWebHostEnvironment env)
+    [HttpPost("{id:guid}/photo")]
+    public async Task<ActionResult<DoctorDto>> UploadPhoto(Guid id, IFormFile file)
     {
-        var doctor = await _mediator.Send(new GetDoctorByIdQuery(id));
-        if (doctor == null) return NotFound();
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
 
-        if (file == null || file.Length == 0) return BadRequest("No file uploaded.");
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-        var uploadsFolder = Path.Combine(env.WebRootPath, "uploads", "doctors");
-        if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest("Invalid file type. Only JPG, PNG, and WebP images are allowed.");
 
-        var fileName = $"{id}_{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-        var filePath = Path.Combine(uploadsFolder, fileName);
+        if (file.Length > 5 * 1024 * 1024) // 5MB limit
+            return BadRequest("File size exceeds 5MB limit.");
 
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        var photoUrl = $"/uploads/doctors/{fileName}";
-        
-        // Update doctor record with new photo URL
-        await _mediator.Send(new UpdateDoctorCommand(
-            id, 
-            doctor.Name, 
-            doctor.Specialty, 
-            doctor.Bio, 
-            photoUrl, 
-            doctor.IsActive,
-            doctor.TenantId));
-
-        return Ok(await _mediator.Send(new GetDoctorByIdQuery(id)));
+        using var stream = file.OpenReadStream();
+        var result = await _mediator.Send(new UploadDoctorPhotoCommand(id, stream, file.FileName));
+        return Ok(result);
     }
 
     [Authorize(Policy = "AdminOnly")]

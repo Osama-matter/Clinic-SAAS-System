@@ -7,6 +7,7 @@ const saasAdminService = {
   getTransactions: (page = 1, pageSize = 20) => 
     api.get(`/SaaSAdmin/transactions?page=${page}&pageSize=${pageSize}`),
   updateSubscription: (command) => api.put("/SaaSAdmin/subscription", command),
+  manualCreateClinic: (payload) => api.post("/SaaSAdmin/manual-clinic", payload),
 };
 
 export default saasAdminService;

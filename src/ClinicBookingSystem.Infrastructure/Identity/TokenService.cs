@@ -40,7 +40,7 @@ public class TokenService : ITokenService
             issuer: _config["Jwt:Issuer"],
             audience: _config["Jwt:Audience"],
             claims: claimsList,
-            expires: DateTime.UtcNow.AddDays(7),
+            expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds
         );
 
@@ -55,6 +55,21 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(bytes);
     }
 
+    public string HashRefreshToken(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return string.Empty;
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(bytes);
+    }
+
     public bool ValidateRefreshToken(string token, string storedHash)
-        => BC.Verify(token, storedHash);
+    {
+        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(storedHash))
+            return false;
+
+        var computedHash = HashRefreshToken(token);
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(computedHash),
+            Encoding.UTF8.GetBytes(storedHash));
+    }
 }

@@ -18,6 +18,7 @@ public interface ITokenService
 {
     string GenerateAccessToken(Guid userId, string email, UserRole role, Guid tenantId);
     string GenerateRefreshToken();
+    string HashRefreshToken(string token);
     bool ValidateRefreshToken(string token, string storedHash);
 }
 

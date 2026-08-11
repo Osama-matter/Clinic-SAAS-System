@@ -15,6 +15,8 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
         builder.Property(p => p.ChronicDiseases).HasMaxLength(1000);
         builder.Property(p => p.DrugHistory).HasMaxLength(1000);
         builder.HasIndex(p => p.TenantId);
+        builder.HasIndex(p => new { p.TenantId, p.Phone });
+        builder.HasIndex(p => new { p.TenantId, p.Name });
     }
 }
 
@@ -37,6 +39,8 @@ public class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.Property(v => v.Symptoms).HasMaxLength(2000);
         builder.Property(v => v.Notes).HasMaxLength(4000);
         builder.HasIndex(v => v.TenantId);
+        builder.HasIndex(v => new { v.TenantId, v.PatientId, v.VisitDate });
+        builder.HasIndex(v => new { v.TenantId, v.DoctorId, v.VisitDate });
     }
 }
 

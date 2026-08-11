@@ -17,7 +17,7 @@ public class VisitHandlers :
     IRequestHandler<AddDiagnosisCommand, Unit>,
     IRequestHandler<UploadVisitImageCommand, string>,
     IRequestHandler<GetVisitByIdQuery, VisitDetailDto>,
-    IRequestHandler<GetVisitsByPatientQuery, IEnumerable<VisitSummaryDto>>
+    IRequestHandler<GetVisitsByPatientQuery, PagedVisitsResultDto>
 {
     private readonly IUnitOfWork _uow;
     private readonly IFileService _fileService;
@@ -460,16 +460,21 @@ public class VisitHandlers :
         );
     }
 
-    public async Task<IEnumerable<VisitSummaryDto>> Handle(GetVisitsByPatientQuery request, CancellationToken cancellationToken)
+    public async Task<PagedVisitsResultDto> Handle(GetVisitsByPatientQuery request, CancellationToken cancellationToken)
     {
-        var visits = await _uow.Visits.GetAllAsync(
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 50);
+
+        var (items, totalCount) = await _uow.Visits.GetPagedAsync(
+            page,
+            pageSize,
             v => v.PatientId == request.PatientId,
             cancellationToken,
             v => v.Diagnoses,
             v => v.Prescriptions,
             v => v.ImagingOrders);
 
-        return visits.Select(v => new VisitSummaryDto(
+        var dtos = items.Select(v => new VisitSummaryDto(
             v.Id,
             v.PatientId,
             v.DoctorId,
@@ -481,5 +486,7 @@ public class VisitHandlers :
             v.Prescriptions.Select(p => new PrescriptionDto(p.Id, p.MedicationName, p.Dosage, p.Instructions, p.Duration)).ToList(),
             v.ImagingOrders.Select(i => new ImagingOrderDto(i.Id, i.ImagingType, i.BodyPart, i.ImageData, i.ImageUrl, i.OrderDate)).ToList()
         ));
+
+        return new PagedVisitsResultDto(dtos, totalCount, page, pageSize);
     }
 }

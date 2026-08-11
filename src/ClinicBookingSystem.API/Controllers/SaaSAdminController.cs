@@ -48,4 +48,11 @@ public class SaaSAdminController : ControllerBase
     {
         return Ok(await _mediator.Send(command));
     }
+
+    [HttpPost("manual-clinic")]
+    public async Task<ActionResult<Guid>> ManualCreateClinic([FromBody] ManualCreateClinicCommand command)
+    {
+        var tenantId = await _mediator.Send(command);
+        return Ok(tenantId);
+    }
 }

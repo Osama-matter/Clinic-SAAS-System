@@ -31,6 +31,26 @@ public class ExceptionHandlingMiddleware
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        if (exception is FluentValidation.ValidationException valEx)
+        {
+            var validationProblem = new ValidationProblemDetails(
+                valEx.Errors
+                    .GroupBy(e => e.PropertyName)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(e => e.ErrorMessage).ToArray()))
+            {
+                Status = (int)HttpStatusCode.BadRequest,
+                Title = "Validation Failed",
+                Detail = "One or more validation errors occurred.",
+                Instance = context.Request.Path
+            };
+
+            context.Response.ContentType = "application/problem+json";
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            return context.Response.WriteAsync(JsonSerializer.Serialize(validationProblem));
+        }
+
         var (statusCode, title) = exception switch
         {
             NotFoundException => (HttpStatusCode.NotFound, "Resource Not Found"),

@@ -55,3 +55,14 @@ public record UpdateClinicSubscriptionCommand(
     SubscriptionStatus Status,
     DateTime ExpiresAt
 ) : IRequest<bool>;
+
+public record ManualCreateClinicCommand(
+    string ClinicName,
+    string Subdomain,
+    string Address,
+    string Phone,
+    Guid PlanId,
+    string AdminName,
+    string AdminEmail,
+    string AdminPassword
+) : IRequest<Guid>;

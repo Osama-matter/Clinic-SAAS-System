@@ -16,7 +16,8 @@ public class SaaSAdminDashboardHandlers :
     IRequestHandler<GetSaasRevenueAnalyticsQuery, IEnumerable<RevenuePointDto>>,
     IRequestHandler<GetClinicsUsageMetricsQuery, IEnumerable<ClinicUsageDto>>,
     IRequestHandler<GetSaasTransactionsQuery, IEnumerable<SaasTransactionDto>>,
-    IRequestHandler<UpdateClinicSubscriptionCommand, bool>
+    IRequestHandler<UpdateClinicSubscriptionCommand, bool>,
+    IRequestHandler<ManualCreateClinicCommand, Guid>
 {
     private readonly IUnitOfWork _uow;
 
@@ -164,5 +165,64 @@ public class SaaSAdminDashboardHandlers :
         await _uow.SaveChangesAsync(cancellationToken);
 
         return true;
+    }
+
+    public async Task<Guid> Handle(ManualCreateClinicCommand request, CancellationToken cancellationToken)
+    {
+        var plan = await _uow.Planes.GetByIdAsync(request.PlanId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Plan), request.PlanId);
+
+        var existingTenant = await _uow.Tenants.AsQueryable().FirstOrDefaultAsync(t => t.Subdomain == request.Subdomain, cancellationToken);
+        if (existingTenant != null)
+        {
+            throw new DomainException($"Subdomain '{request.Subdomain}' is already in use.");
+        }
+
+        var existingUser = await _uow.Users.AsQueryable().FirstOrDefaultAsync(u => u.Email == request.AdminEmail, cancellationToken);
+        if (existingUser != null)
+        {
+            throw new DomainException($"Email '{request.AdminEmail}' is already registered.");
+        }
+
+        var tenant = new Tenant
+        {
+            Name = request.ClinicName,
+            Subdomain = request.Subdomain,
+            Address = request.Address,
+            PhoneNumber = request.Phone,
+            IsActive = true,
+            SubscriptionExpiry = DateTime.UtcNow.AddDays(plan.DurationDays)
+        };
+
+        await _uow.Tenants.AddAsync(tenant, cancellationToken);
+        // We must save to get the Tenant Id
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        var adminUser = new User
+        {
+            TenantId = tenant.Id,
+            Name = request.AdminName,
+            Email = request.AdminEmail,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.AdminPassword, 12),
+            Role = UserRole.Admin,
+            PhoneNumber = request.Phone
+        };
+        await _uow.Users.AddAsync(adminUser, cancellationToken);
+
+        var subscription = new ClinicSubscription
+        {
+            ClinicId = tenant.Id,
+            PlanId = plan.Id,
+            Status = SubscriptionStatus.Active,
+            StartDate = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(plan.DurationDays),
+            PaidAmount = 0,
+            PaymentRef = "MANUAL_ACTIVATION"
+        };
+
+        await _uow.ClinicSubscriptions.AddAsync(subscription, cancellationToken);
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        return tenant.Id;
     }
 }

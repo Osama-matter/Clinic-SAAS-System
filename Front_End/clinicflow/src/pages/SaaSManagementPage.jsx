@@ -61,6 +61,7 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [clinicModalOpen, setClinicModalOpen] = useState(false);
   const [subModalOpen, setSubModalOpen] = useState(false);
+  const [manualClinicModalOpen, setManualClinicModalOpen] = useState(false);
   const [saasStats, setSaasStats] = useState(null);
   const [revenueAnalytics, setRevenueAnalytics] = useState([]);
   const [usageMetrics, setUsageMetrics] = useState([]);
@@ -80,6 +81,16 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
     address: "",
     phoneNumber: "",
     isActive: true,
+  });
+  const [manualClinicForm, setManualClinicForm] = useState({
+    clinicName: "",
+    subdomain: "",
+    address: "",
+    phone: "",
+    planId: "",
+    adminName: "",
+    adminEmail: "",
+    adminPassword: "",
   });
 
   const statusMeta = {
@@ -356,6 +367,45 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
       await fetchData();
     } catch {
       toast.error(isAr ? "فشل تحديث الاشتراك." : "Failed to update subscription.", { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const saveManualClinic = async (e) => {
+    e.preventDefault();
+    if (!manualClinicForm.planId) {
+      toast.error(isAr ? "يرجى اختيار باقة." : "Please select a plan.");
+      return;
+    }
+    setSubmitting(true);
+    const toastId = toast.loading(isAr ? "جارٍ الإنشاء..." : "Creating clinic...");
+    try {
+      await saasAdminService.manualCreateClinic({
+        clinicName: manualClinicForm.clinicName.trim(),
+        subdomain: manualClinicForm.subdomain.trim(),
+        address: manualClinicForm.address.trim(),
+        phone: manualClinicForm.phone.trim(),
+        planId: manualClinicForm.planId,
+        adminName: manualClinicForm.adminName.trim(),
+        adminEmail: manualClinicForm.adminEmail.trim(),
+        adminPassword: manualClinicForm.adminPassword,
+      });
+      toast.success(isAr ? "تم إنشاء العيادة بنجاح." : "Clinic created successfully.", { id: toastId });
+      setManualClinicModalOpen(false);
+      setManualClinicForm({
+        clinicName: "",
+        subdomain: "",
+        address: "",
+        phone: "",
+        planId: "",
+        adminName: "",
+        adminEmail: "",
+        adminPassword: "",
+      });
+      await fetchData();
+    } catch (err) {
+      toast.error(isAr ? "فشل إنشاء العيادة. الرجاء التحقق من البيانات." : "Failed to create clinic. Please check your data.", { id: toastId });
     } finally {
       setSubmitting(false);
     }
@@ -836,6 +886,16 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
       {/* ═══ CLINICS TAB ══════════════════════════════════════════════════════ */}
       {activeTab === "clinics" && (
         <div className="space-y-8 sm:space-y-10">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-black text-white">{isAr ? "العيادات" : "Clinics"}</h2>
+            <button
+              onClick={() => setManualClinicModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]"
+            >
+              <Plus className="h-4 w-4" />
+              {isAr ? "إنشاء عيادة يدوياً" : "Create Clinic Manually"}
+            </button>
+          </div>
           {/* Stats Overview */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
             {[
@@ -1371,6 +1431,146 @@ const SaaSManagementPage = ({ initialTab = "plans" }) => {
           </div>
         </form>
       </Modal>
+
+      {/* ═══ MANUAL CLINIC MODAL ═════════════════════════════════════════════════════ */}
+      <Modal
+        open={manualClinicModalOpen}
+        onClose={() => setManualClinicModalOpen(false)}
+        title={isAr ? "إنشاء عيادة يدوياً" : "Create Clinic Manually"}
+      >
+        <form onSubmit={saveManualClinic} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "اسم العيادة" : "Clinic Name"}
+              </label>
+              <input
+                required
+                type="text"
+                value={manualClinicForm.clinicName}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, clinicName: e.target.value })}
+                className={inputCls}
+                placeholder={isAr ? "الاسم" : "Name"}
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "النطاق الفرعي (Subdomain)" : "Subdomain"}
+              </label>
+              <input
+                required
+                type="text"
+                value={manualClinicForm.subdomain}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, subdomain: e.target.value })}
+                className={inputCls}
+                placeholder="e.g. myclinic"
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "اسم مدير العيادة" : "Admin Name"}
+              </label>
+              <input
+                required
+                type="text"
+                value={manualClinicForm.adminName}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, adminName: e.target.value })}
+                className={inputCls}
+                placeholder={isAr ? "الاسم" : "Admin Name"}
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "البريد الإلكتروني" : "Admin Email"}
+              </label>
+              <input
+                required
+                type="email"
+                value={manualClinicForm.adminEmail}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, adminEmail: e.target.value })}
+                className={inputCls}
+                placeholder={isAr ? "البريد الإلكتروني" : "Email"}
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "كلمة المرور" : "Password"}
+              </label>
+              <input
+                required
+                type="password"
+                value={manualClinicForm.adminPassword}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, adminPassword: e.target.value })}
+                className={inputCls}
+                placeholder={isAr ? "كلمة المرور" : "Password"}
+                minLength={6}
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "رقم الهاتف" : "Phone Number"}
+              </label>
+              <input
+                required
+                type="text"
+                value={manualClinicForm.phone}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, phone: e.target.value })}
+                className={inputCls}
+                placeholder={isAr ? "الهاتف" : "Phone"}
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "العنوان" : "Address"}
+              </label>
+              <input
+                required
+                type="text"
+                value={manualClinicForm.address}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, address: e.target.value })}
+                className={inputCls}
+                placeholder={isAr ? "العنوان" : "Address"}
+              />
+            </div>
+            <div>
+              <label className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {isAr ? "باقة الاشتراك" : "Subscription Plan"}
+              </label>
+              <select
+                required
+                value={manualClinicForm.planId}
+                onChange={(e) => setManualClinicForm({ ...manualClinicForm, planId: e.target.value })}
+                className={inputCls}
+              >
+                <option value="">{isAr ? "اختر الباقة..." : "Select a plan..."}</option>
+                {plans.filter(p => p.isActive).map(plan => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name} - {plan.price} EGP
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-6 border-t border-slate-700/50">
+            <button
+              type="button"
+              onClick={() => setManualClinicModalOpen(false)}
+              className="flex-1 rounded-xl bg-white/5 py-3.5 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-white/10"
+            >
+              {isAr ? "إلغاء" : "Cancel"}
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 rounded-xl bg-emerald-500 py-3.5 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-400 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {isAr ? "إنشاء" : "Create"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
     </div>
   );
 };

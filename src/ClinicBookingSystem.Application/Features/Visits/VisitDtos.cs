@@ -234,4 +234,12 @@ public record AddDiagnosisCommand(
 
 // ── Queries ───────────────────────────────────────────
 public record GetVisitByIdQuery(Guid Id) : IRequest<VisitDetailDto>;
-public record GetVisitsByPatientQuery(Guid PatientId) : IRequest<IEnumerable<VisitSummaryDto>>;
+
+public record PagedVisitsResultDto(
+    IEnumerable<VisitSummaryDto> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
+);
+
+public record GetVisitsByPatientQuery(Guid PatientId, int Page = 1, int PageSize = 20) : IRequest<PagedVisitsResultDto>;

@@ -11,7 +11,8 @@ const DoctorQuickSearchModal = ({ open, mode, onClose, onPick }) => {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const patientsQuery = usePatientsQuery(open);
-  const patients = patientsQuery.data || [];
+  const rawPatients = patientsQuery.data;
+  const patients = Array.isArray(rawPatients) ? rawPatients : rawPatients?.items || [];
 
   const title =
     mode === "start"

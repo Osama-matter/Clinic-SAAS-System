@@ -17,15 +17,22 @@ public class TenantProvider : ITenantProvider
     {
         get
         {
-            // 1. Try to get from JWT claims (Multiple casing for Production environments)
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("tenant_id")?.Value
-                     ?? _httpContextAccessor.HttpContext?.User?.FindFirst("TenantId")?.Value
-                     ?? _httpContextAccessor.HttpContext?.User?.FindFirst("tenantid")?.Value;
+            var user = _httpContextAccessor.HttpContext?.User;
+            var isAuthenticated = user?.Identity?.IsAuthenticated ?? false;
+
+            // 1. For authenticated users, strictly resolve TenantId from verified JWT claims
+            var claim = user?.FindFirst("tenant_id")?.Value
+                     ?? user?.FindFirst("TenantId")?.Value
+                     ?? user?.FindFirst("tenantid")?.Value;
 
             if (!string.IsNullOrEmpty(claim) && Guid.TryParse(claim, out var tenantIdFromClaim))
                 return tenantIdFromClaim;
 
-            // 2. Try to get from Header (Fallback/Guest access)
+            // If user is authenticated, DO NOT fallback to client-supplied header to prevent spoofing
+            if (isAuthenticated)
+                return null;
+
+            // 2. For unauthenticated public/guest requests ONLY, fallback to X-Tenant-Id header
             var header = _httpContextAccessor.HttpContext?.Request.Headers["X-Tenant-Id"].ToString();
             if (!string.IsNullOrEmpty(header) && Guid.TryParse(header, out var tenantIdFromHeader))
                 return tenantIdFromHeader;

@@ -34,14 +34,15 @@ const DoctorPatientDrawer = ({ open, appointment, onClose, onOpenFull }) => {
   const [manualPatientId, setManualPatientId] = useState(null);
 
   const patientsQuery = usePatientsQuery(open);
-  const patients = patientsQuery.data || [];
+  const rawPatients = patientsQuery.data;
+  const patients = Array.isArray(rawPatients) ? rawPatients : rawPatients?.items || [];
 
   const resolvedPatientId = useMemo(() => {
     if (manualPatientId) return manualPatientId;
     const apptPhone = normalizePhone(appointment?.patientPhone);
     if (!apptPhone) return null;
 
-    const match = patients.find((p) => normalizePhone(p.phone || p.phoneNumber) === apptPhone);
+    const match = Array.isArray(patients) ? patients.find((p) => normalizePhone(p.phone || p.phoneNumber) === apptPhone) : null;
     return match?.id || null;
   }, [appointment, manualPatientId, patients]);
 

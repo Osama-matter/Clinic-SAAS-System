@@ -20,20 +20,35 @@ public class FileService : IFileService
     public async Task<string> SaveFileAsync(Stream fileStream, string fileName, string subDirectory, CancellationToken cancellationToken = default)
     {
         if (fileStream == null) throw new ArgumentNullException(nameof(fileStream));
+        if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Filename is required.", nameof(fileName));
 
-        // Create directory if not exists
-        var uploadPath = Path.Combine(_environment.WebRootPath, "uploads", subDirectory);
+        var webRoot = string.IsNullOrEmpty(_environment.WebRootPath)
+            ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+            : _environment.WebRootPath;
+
+        var baseUploadsFolder = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
+
+        // Sanitize subDirectory and fileName against path traversal
+        var safeFileName = Path.GetFileName(fileName);
+        var safeSubDir = (subDirectory ?? string.Empty).Replace("..", "").Trim('/', '\\');
+        var uploadPath = Path.GetFullPath(Path.Combine(baseUploadsFolder, safeSubDir));
+
+        if (!uploadPath.StartsWith(baseUploadsFolder, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Invalid upload path directory traversal detected.");
+        }
+
         if (!Directory.Exists(uploadPath))
         {
             Directory.CreateDirectory(uploadPath);
         }
 
         // Generate unique filename
-        var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
+        var uniqueFileName = $"{Guid.NewGuid()}_{safeFileName}";
         var filePath = Path.Combine(uploadPath, uniqueFileName);
 
         // Process image if it's an image
-        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var extension = Path.GetExtension(safeFileName).ToLowerInvariant();
         var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
 
         if (imageExtensions.Contains(extension))
@@ -49,7 +64,8 @@ public class FileService : IFileService
         }
 
         // Return relative URL path
-        return $"/uploads/{subDirectory}/{uniqueFileName}";
+        var relativeUrlDir = string.IsNullOrEmpty(safeSubDir) ? "" : $"/{safeSubDir}";
+        return $"/uploads{relativeUrlDir}/{uniqueFileName}";
     }
 
     private async Task ProcessAndSaveImageAsync(Stream input, string outputPath, string extension, CancellationToken ct)
@@ -87,11 +103,20 @@ public class FileService : IFileService
 
     public void DeleteFile(string filePath)
     {
-        if (string.IsNullOrEmpty(filePath)) return;
+        if (string.IsNullOrWhiteSpace(filePath)) return;
 
-        // Convert relative URL to physical path
-        var relativePath = filePath.TrimStart('/');
-        var physicalPath = Path.Combine(_environment.WebRootPath, relativePath);
+        var webRoot = string.IsNullOrEmpty(_environment.WebRootPath)
+            ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+            : _environment.WebRootPath;
+
+        var baseWebRoot = Path.GetFullPath(webRoot);
+        var relativePath = filePath.TrimStart('/', '\\');
+        var physicalPath = Path.GetFullPath(Path.Combine(baseWebRoot, relativePath));
+
+        if (!physicalPath.StartsWith(baseWebRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Invalid file path directory traversal detected.");
+        }
 
         if (File.Exists(physicalPath))
         {

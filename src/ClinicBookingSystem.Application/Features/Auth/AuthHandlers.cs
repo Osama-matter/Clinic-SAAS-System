@@ -129,7 +129,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokenDto>
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, user.Role, user.TenantId ?? Guid.Empty);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
-        user.RefreshToken = BC.HashPassword(refreshToken);
+        user.RefreshToken = _tokenService.HashRefreshToken(refreshToken);
         user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
         await _uow.Users.UpdateAsync(user, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
@@ -152,19 +152,20 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
 
     public async Task<AuthTokenDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        var users = await _uow.Users.GetAllAsync(
-            u => u.RefreshToken != null && u.RefreshTokenExpiry > DateTime.UtcNow,
-            cancellationToken);
-        var user = users.FirstOrDefault(u => BC.Verify(request.RefreshToken, u.RefreshToken))
-            ?? throw new UnauthorizedActionException("Invalid refresh token.");
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            throw new UnauthorizedActionException("Invalid refresh token.");
 
-        if (user.RefreshTokenExpiry < DateTime.UtcNow)
-            throw new UnauthorizedActionException("Refresh token expired.");
+        var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
+
+        var user = await _uow.Users.FirstOrDefaultAsync(
+            u => u.RefreshToken == tokenHash && u.RefreshTokenExpiry > DateTime.UtcNow,
+            cancellationToken)
+            ?? throw new UnauthorizedActionException("Invalid or expired refresh token.");
 
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, user.Role, user.TenantId ?? Guid.Empty);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
-        user.RefreshToken = BC.HashPassword(newRefreshToken);
+        user.RefreshToken = _tokenService.HashRefreshToken(newRefreshToken);
         user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
         
         await _uow.Users.UpdateAsync(user, cancellationToken);

@@ -6,17 +6,23 @@ using ClinicBookingSystem.API.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ClinicBookingSystem.API.Controllers;
 
-/// <summary>PatientAppointment booking endpoints</summary>
+/// <summary>Patient appointment booking endpoints</summary>
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
 [RequireActiveSubscription]
 public class AppointmentsController : BaseController
 {
-    public AppointmentsController(IMediator mediator) : base(mediator) { }
+    private readonly ITenantProvider _tenantProvider;
+
+    public AppointmentsController(IMediator mediator, ITenantProvider tenantProvider) : base(mediator)
+    {
+        _tenantProvider = tenantProvider;
+    }
 
     // ── Authenticated endpoints ───────────────────────────
 
@@ -60,6 +66,7 @@ public class AppointmentsController : BaseController
 
     /// <summary>Book an appointment without login (guest)</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("PublicBookingPolicy")]
     [HttpPost("public")]
     [CheckPlanLimit(SaaSFeatureCodes.AppointmentsLimit)]
     [ProducesResponseType(typeof(PublicAppointmentDto), StatusCodes.Status201Created)]
@@ -73,36 +80,51 @@ public class AppointmentsController : BaseController
 
     /// <summary>Lookup appointment by booking reference and phone</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("PublicBookingPolicy")]
     [HttpPost("public/lookup")]
     [ProducesResponseType(typeof(PublicAppointmentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PublicLookup([FromBody] LookupAppointmentByReferenceQuery query, CancellationToken ct)
-        => Ok(await Mediator.Send(query, ct));
+    {
+        var effectiveTenantId = query.TenantId ?? _tenantProvider.TenantId;
+        return Ok(await Mediator.Send(query with { TenantId = effectiveTenantId }, ct));
+    }
 
     /// <summary>Search public appointments by patient name or phone</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("PublicBookingPolicy")]
     [HttpGet("public/search")]
     [ProducesResponseType(typeof(IEnumerable<PublicAppointmentSearchDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> PublicSearch([FromQuery] string? name, [FromQuery] string? phone, CancellationToken ct)
-        => Ok(await Mediator.Send(new SearchPublicAppointmentsQuery(name, phone), ct));
+    public async Task<IActionResult> PublicSearch([FromQuery] string? name, [FromQuery] string? phone, [FromQuery] Guid? tenantId, CancellationToken ct)
+    {
+        var effectiveTenantId = tenantId ?? _tenantProvider.TenantId;
+        return Ok(await Mediator.Send(new SearchPublicAppointmentsQuery(name, phone, effectiveTenantId), ct));
+    }
 
     /// <summary>Reschedule appointment by booking reference and phone</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("PublicBookingPolicy")]
     [HttpPut("public/reschedule")]
     [ProducesResponseType(typeof(PublicAppointmentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> PublicReschedule([FromBody] PublicRescheduleAppointmentCommand command, CancellationToken ct)
-        => Ok(await Mediator.Send(command, ct));
+    {
+        var effectiveTenantId = command.TenantId ?? _tenantProvider.TenantId;
+        return Ok(await Mediator.Send(command with { TenantId = effectiveTenantId }, ct));
+    }
 
     /// <summary>Cancel appointment by booking reference and phone</summary>
     [AllowAnonymous]
+    [EnableRateLimiting("PublicBookingPolicy")]
+    [HttpPost("public/cancel")]
     [HttpDelete("public/cancel")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PublicCancel([FromBody] PublicCancelAppointmentCommand command, CancellationToken ct)
     {
-        await Mediator.Send(command, ct);
+        var effectiveTenantId = command.TenantId ?? _tenantProvider.TenantId;
+        await Mediator.Send(command with { TenantId = effectiveTenantId }, ct);
         return NoContent();
     }
 
@@ -125,6 +147,3 @@ public class AppointmentsController : BaseController
         return NoContent();
     }
 }
-
-/// <summary>Request body for adding notes</summary>
-public record NotesRequest(string Notes);

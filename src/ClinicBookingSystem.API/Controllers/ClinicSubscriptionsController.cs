@@ -17,13 +17,20 @@ public class ClinicSubscriptionsController : ControllerBase
         _mediator = mediator;
     }
 
-    [HttpGet("clinic/{clinicId}")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    [HttpGet("my")]
+    public async Task<ActionResult<MySubscriptionDto>> GetMySubscription()
+    {
+        return Ok(await _mediator.Send(new GetMySubscriptionQuery()));
+    }
+
+    [HttpGet("clinic/{clinicId:guid}")]
     public async Task<ActionResult<IEnumerable<ClinicSubscriptionDto>>> GetByClinicId(Guid clinicId)
     {
         return Ok(await _mediator.Send(new GetClinicSubscriptionsQuery(clinicId)));
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:guid}")]
     public async Task<ActionResult<ClinicSubscriptionDto>> GetById(Guid id)
     {
         return Ok(await _mediator.Send(new GetClinicSubscriptionByIdQuery(id)));
@@ -36,7 +43,7 @@ public class ClinicSubscriptionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPatch("{id}/status")]
+    [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<ClinicSubscriptionDto>> UpdateStatus(Guid id, UpdateClinicSubscriptionStatusCommand command)
     {
         if (id != command.SubscriptionId) return BadRequest("ID mismatch");
@@ -48,12 +55,5 @@ public class ClinicSubscriptionsController : ControllerBase
     {
         var paymentUrl = await _mediator.Send(command);
         return Ok(new { url = paymentUrl });
-    }
-
-    [Authorize(Roles = "Admin,SuperAdmin")]
-    [HttpGet("my")]
-    public async Task<ActionResult<MySubscriptionDto>> GetMySubscription()
-    {
-        return Ok(await _mediator.Send(new GetMySubscriptionQuery()));
     }
 }

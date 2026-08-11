@@ -222,7 +222,8 @@ const PatientsPage = () => {
   const isAr = lang === "ar";
   const queryClient = useQueryClient();
   const patientsQuery = usePatientsQuery(isStaff);
-  const patients = patientsQuery.data || [];
+  const rawPatientsData = patientsQuery.data;
+  const patients = Array.isArray(rawPatientsData) ? rawPatientsData : rawPatientsData?.items || [];
   const loading = patientsQuery.isLoading && patients.length === 0;
   const refreshing = patientsQuery.isFetching && patients.length > 0;
   const deferredSearch = useDeferredValue(search);

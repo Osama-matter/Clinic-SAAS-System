@@ -26,9 +26,9 @@ public class VisitsController : ControllerBase
     }
 
     [HttpGet("patient/{patientId}")]
-    public async Task<ActionResult<IEnumerable<VisitSummaryDto>>> GetByPatient(Guid patientId)
+    public async Task<ActionResult<PagedVisitsResultDto>> GetByPatient(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        return Ok(await _mediator.Send(new GetVisitsByPatientQuery(patientId)));
+        return Ok(await _mediator.Send(new GetVisitsByPatientQuery(patientId, page, pageSize)));
     }
 
     [HttpPost]
@@ -82,6 +82,7 @@ public class VisitsController : ControllerBase
         await _mediator.Send(command);
         return NoContent();
     }
+
     [HttpPost("upload-image")]
     public async Task<ActionResult<object>> UploadImage(IFormFile file)
     {

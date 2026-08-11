@@ -19,7 +19,7 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
 
     public async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default, params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
     {
-        var query = _dbSet.AsQueryable();
+        var query = _dbSet.AsNoTracking();
         if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
         return await query.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
@@ -27,9 +27,9 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
     public async Task<IEnumerable<T>> GetAllAsync(
         System.Linq.Expressions.Expression<Func<T, bool>>? predicate = null,
         CancellationToken cancellationToken = default,
-        params System.Linq.Expressions.Expression<Func<T, object>>[] includes)// this  method  is  used to  get all the entities of type T from the database and also to filter the entities based on the predicate and also to include the related entities based on the includes parameter and also to support cancellation token for async operations
+        params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
     {
-        var query = _dbSet.AsQueryable();
+        var query = _dbSet.AsNoTracking();
         if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
         if (predicate != null) query = query.Where(predicate);
         return await query.ToListAsync(cancellationToken);
@@ -39,14 +39,14 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         System.Linq.Expressions.Expression<Func<T, bool>> predicate,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet.AnyAsync(predicate, cancellationToken);
+        return await _dbSet.AsNoTracking().AnyAsync(predicate, cancellationToken);
     }
 
     public async Task<int> CountAsync(
         System.Linq.Expressions.Expression<Func<T, bool>> predicate,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet.CountAsync(predicate, cancellationToken);
+        return await _dbSet.AsNoTracking().CountAsync(predicate, cancellationToken);
     }
 
     public async Task<T?> FirstOrDefaultAsync(
@@ -54,12 +54,12 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         CancellationToken cancellationToken = default,
         params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
     {
-        var query = _dbSet.AsQueryable();
+        var query = _dbSet.AsNoTracking();
         if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
         return await query.FirstOrDefaultAsync(predicate, cancellationToken);
     }
 
-    public IQueryable<T> AsQueryable() => _dbSet.AsQueryable();
+    public IQueryable<T> AsQueryable() => _dbSet.AsNoTracking();
 
     public async Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, 
@@ -67,7 +67,7 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         CancellationToken cancellationToken = default,
         params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
     {
-        var query = _dbSet.AsQueryable();
+        var query = _dbSet.AsNoTracking();
         if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
         if (predicate != null) query = query.Where(predicate);
 

@@ -65,7 +65,8 @@ export function usePatientsQuery(enabled = true, page = 1, pageSize = 24, search
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const response = await medicalPatientService.getAll({ page, pageSize, searchTerm });
-      return response.data;
+      const data = response.data;
+      return Array.isArray(data) ? data : data?.items || [];
     },
   });
 }
@@ -82,10 +83,11 @@ export function useInfinitePatientsQuery(enabled = true, searchTerm = "") {
         pageSize: 24, 
         searchTerm 
       });
-      return response.data;
+      const data = response.data;
+      return Array.isArray(data) ? { items: data, page: 1, totalCount: data.length, pageSize: 24 } : data;
     },
     getNextPageParam: (lastPage) => {
-      if (lastPage.page < Math.ceil(lastPage.totalCount / lastPage.pageSize)) {
+      if (lastPage?.page && lastPage?.totalCount && lastPage.page < Math.ceil(lastPage.totalCount / lastPage.pageSize)) {
         return lastPage.page + 1;
       }
       return undefined;

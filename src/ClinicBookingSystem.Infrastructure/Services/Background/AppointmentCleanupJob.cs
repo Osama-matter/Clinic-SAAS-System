@@ -24,7 +24,9 @@ public class AppointmentCleanupJob
 
         // Find Pending or Confirmed appointments that are in the past (e.g., 1 hour past slot time)
         var expiredAppointments = await _context.Appointments
-            .Where(a => (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed)
+            .IgnoreQueryFilters()
+            .Where(a => !a.IsDeleted
+                && (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed)
                 && a.SlotDateTime < now.AddHours(-1))
             .ToListAsync();
 

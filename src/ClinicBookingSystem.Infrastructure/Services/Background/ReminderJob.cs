@@ -29,9 +29,11 @@ public class ReminderJob
 
         // ── Appointment-based reminders (doctor appointments) ──
         var upcomingAppointments = await _context.Appointments
+            .IgnoreQueryFilters()
             .Include(a => a.User)
             .Include(a => a.Doctor)
-            .Where(a => (a.Status == AppointmentStatus.Confirmed || a.Status == AppointmentStatus.Pending)
+            .Where(a => !a.IsDeleted
+                && (a.Status == AppointmentStatus.Confirmed || a.Status == AppointmentStatus.Pending)
                 && a.SlotDateTime >= now && a.SlotDateTime <= in24h)
             .ToListAsync();
 
@@ -48,8 +50,9 @@ public class ReminderJob
             var typeKey = send1h ? "1h" : "24h";
             var referenceKey = $"appt-reminder-{typeKey}-{appt.Id}";
             
-            var alreadySent = await _context.Notifications.AnyAsync(n =>
-                n.Message.Contains(referenceKey));
+            var alreadySent = await _context.Notifications
+                .IgnoreQueryFilters()
+                .AnyAsync(n => !n.IsDeleted && n.Message.Contains(referenceKey));
 
             if (alreadySent) continue;
 

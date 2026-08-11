@@ -36,15 +36,22 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var isAuthenticated = user?.Identity?.IsAuthenticated ?? false;
+
             // 1. Try "TenantId" claim (standard)
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("TenantId")
-                      ?? _httpContextAccessor.HttpContext?.User?.FindFirst("tenant_id")
-                      ?? _httpContextAccessor.HttpContext?.User?.FindFirst("tenantid");
+            var claim = user?.FindFirst("TenantId")
+                      ?? user?.FindFirst("tenant_id")
+                      ?? user?.FindFirst("tenantid");
 
             if (claim != null && Guid.TryParse(claim.Value, out var id))
                 return id;
 
-            // 2. Try Header (X-Tenant-Id)
+            // If user is authenticated, DO NOT fallback to header to prevent spoofing
+            if (isAuthenticated)
+                return null;
+
+            // 2. Try Header (X-Tenant-Id) for unauthenticated requests ONLY
             var header = _httpContextAccessor.HttpContext?.Request.Headers["X-Tenant-Id"].ToString();
             if (!string.IsNullOrEmpty(header) && Guid.TryParse(header, out var tenantIdFromHeader))
                 return tenantIdFromHeader;

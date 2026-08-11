@@ -21,9 +21,9 @@ public class PatientsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<PatientDto>>> GetAll()
+    public async Task<ActionResult<PagedPatientsResultDto>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
-        return Ok(await _mediator.Send(new GetAllPatientsQuery()));
+        return Ok(await _mediator.Send(new GetAllPatientsQuery(page, pageSize, search)));
     }
 
     [HttpGet("{id}")]
