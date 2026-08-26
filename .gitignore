@@ -27,6 +27,9 @@ bld/
 publish/
 publish*/
 publish_output/
+publish_standard/
+.dotnet-cli/
+.dotnet-home/
 
 ## NuGet
 *.nupkg
