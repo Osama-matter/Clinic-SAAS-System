@@ -26,6 +26,13 @@ public class ScheduleHandlers :
         var tenantId = _currentUser.TenantId
             ?? throw new DomainException("Tenant ID is required.");
 
+        var doctor = await _uow.Doctors.GetByIdAsync(request.DoctorId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Doctor), request.DoctorId);
+
+        var isSuperAdmin = _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6";
+        if (!isSuperAdmin && doctor.TenantId != tenantId)
+            throw new UnauthorizedActionException("Cannot create schedule for a doctor belonging to another clinic.");
+
         var schedule = new Schedule
         {
             TenantId = tenantId,

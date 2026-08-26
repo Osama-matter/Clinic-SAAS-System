@@ -1,11 +1,13 @@
-﻿namespace ClinicBookingSystem.Infrastructure.Settings;
+namespace ClinicBookingSystem.Infrastructure.Settings;
 
 public class EmailSettings
 {
-    public string Host { get; set; } = default!;
-    public int Port { get; set; }
-    public string From { get; set; } = default!;
+    public const string SectionName = "EmailSettings";
+
+    public string Host { get; set; } = string.Empty;
+    public int Port { get; set; } = 587;
+    public string From { get; set; } = string.Empty;
     public string FromName { get; set; } = string.Empty;
-    public string Username { get; set; } = default!;
-    public string Password { get; set; } = default!;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }

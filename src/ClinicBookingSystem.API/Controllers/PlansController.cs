@@ -1,5 +1,7 @@
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.Plans;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClinicBookingSystem.API.Controllers;
@@ -15,18 +17,21 @@ public class PlansController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PlanDto>>> GetAll([FromQuery] bool? isActive)
     {
         return Ok(await _mediator.Send(new GetPlansQuery(isActive)));
     }
 
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<ActionResult<PlanDto>> GetById(Guid id)
     {
         return Ok(await _mediator.Send(new GetPlanByIdQuery(id)));
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpPost]
     public async Task<ActionResult<PlanDto>> Create(CreatePlanCommand command)
     {
@@ -34,6 +39,7 @@ public class PlansController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpPut("{id}")]
     public async Task<ActionResult<PlanDto>> Update(Guid id, UpdatePlanCommand command)
     {
@@ -41,6 +47,7 @@ public class PlansController : ControllerBase
         return Ok(await _mediator.Send(command));
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {

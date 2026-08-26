@@ -10,12 +10,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- Mapping -->
+		<!-- Rate Limiting -->
 		<PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
-		<PackageReference Include="AutoMapper" Version="13.0.1" />
-
-		<!-- Azure services (FIXED VERSION) -->
-		<PackageReference Include="Azure.Identity" Version="1.11.4" />
 
 		<!-- Password hashing -->
 		<PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />

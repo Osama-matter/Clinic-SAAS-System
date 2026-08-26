@@ -1,10 +1,11 @@
 using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Application.Models.Payments.Fawaterak;
 using ClinicBookingSystem.Domain.Exceptions;
-using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using System;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -30,9 +31,9 @@ public class FawaterakPaymentService : IFawaterakPaymentService
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         var cfg = options.Value;
-        _apiKey = cfg.ApiKey;
-        _baseUrl = cfg.BaseUrl;
-        _providerKey = cfg.ProviderKey;
+        _apiKey = cfg.ApiKey ?? string.Empty;
+        _baseUrl = cfg.BaseUrl ?? string.Empty;
+        _providerKey = cfg.ProviderKey ?? string.Empty;
     }
 
     public async Task<EInvoiceResponseModel.EInvoiceResponseDataModel?> CreateEInvoiceAsync(EInvoiceRequestModel eInvoice)
@@ -58,26 +59,54 @@ public class FawaterakPaymentService : IFawaterakPaymentService
             return result?.Data;
         }
 
-        // Log the error for debugging
-        System.Console.WriteLine($"[Fawaterak ERROR] Status: {response.StatusCode}, Body: {responseContent}");
+        _logger.LogError("Fawaterak createInvoiceLink failed with {StatusCode}: {Body}", response.StatusCode, responseContent);
         throw new InvalidOperationException($"Fawaterak createInvoiceLink failed with {(int)response.StatusCode}: {responseContent}");
     }
 
     public bool VerifyWebhook(WebHookModel webHook)
     {
+        if (webHook == null || string.IsNullOrWhiteSpace(webHook.HashKey) || string.IsNullOrWhiteSpace(_apiKey))
+            return false;
+
         var generatedHashKey = GenerateHashKeyForWebhookVerification(webHook.InvoiceId, webHook.InvoiceKey, webHook.PaymentMethod);
-        return generatedHashKey == webHook.HashKey;
+        
+        var generatedBytes = Encoding.UTF8.GetBytes(generatedHashKey);
+        var providedBytes = Encoding.UTF8.GetBytes(webHook.HashKey.Trim().ToLowerInvariant());
+
+        if (generatedBytes.Length != providedBytes.Length)
+            return false;
+
+        return CryptographicOperations.FixedTimeEquals(generatedBytes, providedBytes);
     }
 
     public bool VerifyCancelTransaction(CancelTransactionModel cancelTransaction)
     {
+        if (cancelTransaction == null || string.IsNullOrWhiteSpace(cancelTransaction.HashKey) || string.IsNullOrWhiteSpace(_apiKey))
+            return false;
+
         var generatedHashKey = GenerateHashKeyForCancelTransaction(cancelTransaction.ReferenceId, cancelTransaction.PaymentMethod);
-        return generatedHashKey == cancelTransaction.HashKey;
+        
+        var generatedBytes = Encoding.UTF8.GetBytes(generatedHashKey);
+        var providedBytes = Encoding.UTF8.GetBytes(cancelTransaction.HashKey.Trim().ToLowerInvariant());
+
+        if (generatedBytes.Length != providedBytes.Length)
+            return false;
+
+        return CryptographicOperations.FixedTimeEquals(generatedBytes, providedBytes);
     }
 
     public bool VerifyApiKeyTransaction(string apiKey)
     {
-        return apiKey == _apiKey;
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(_apiKey))
+            return false;
+
+        var providedBytes = Encoding.UTF8.GetBytes(apiKey);
+        var expectedBytes = Encoding.UTF8.GetBytes(_apiKey);
+
+        if (providedBytes.Length != expectedBytes.Length)
+            return false;
+
+        return CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
 
     private string GenerateHashKeyForWebhookVerification(long invoiceId, string invoiceKey, string paymentMethod)
@@ -85,7 +114,7 @@ public class FawaterakPaymentService : IFawaterakPaymentService
         var queryParam = $"InvoiceId={invoiceId}&InvoiceKey={invoiceKey}&PaymentMethod={paymentMethod}";
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_apiKey));
         var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(queryParam));
-        return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
     }
 
     private string GenerateHashKeyForCancelTransaction(string referenceId, string paymentMethod)
@@ -93,6 +122,6 @@ public class FawaterakPaymentService : IFawaterakPaymentService
         var queryParam = $"referenceId={referenceId}&PaymentMethod={paymentMethod}";
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_apiKey));
         var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(queryParam));
-        return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
     }
 }

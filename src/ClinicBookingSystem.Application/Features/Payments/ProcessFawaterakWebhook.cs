@@ -30,34 +30,41 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
     public async Task<bool> Handle(ProcessFawaterakWebhookCommand request, CancellationToken cancellationToken)
     {
         var webHook = request.WebHook;
+        if (webHook == null) return false;
 
-        // 1. Verify Hash
+        // 1. Verify Cryptographic HMAC Signature
         if (!_paymentService.VerifyWebhook(webHook))
         {
             return false;
         }
 
-        // 2. Parse Payload
-        if (!string.IsNullOrEmpty(webHook.PayloadString))
+        // 2. Parse Payload safely
+        if (!string.IsNullOrWhiteSpace(webHook.PayloadString))
         {
             try {
                 webHook.Payload = JsonConvert.DeserializeObject<WebhookPayload>(webHook.PayloadString);
-            } catch { /* ignore malformed payload */ }
+            } catch { /* ignore malformed extra payload */ }
         }
 
-        if (!webHook.InvoiceStatus.Equals("paid", StringComparison.OrdinalIgnoreCase))
+        // Only process paid webhooks for activation
+        if (!string.Equals(webHook.InvoiceStatus, "paid", StringComparison.OrdinalIgnoreCase))
         {
-            return true; // We only handle non-paid for existing transactions (logging/updating status)
+            return true; // Acknowledge non-paid status safely
         }
 
-        // 3. Find Transaction (Existing/Renewal)
+        // 3. Find Existing Transaction (Renewal / Regular Subscription)
         var transaction = await _uow.PaymentTransactions.FirstOrDefaultAsync(
             t => t.ExternalInvoiceId == webHook.InvoiceId, cancellationToken);
 
         if (transaction != null)
         {
-            if (transaction.Status == PaymentStatus.Paid) return true;
+            // Idempotency check: Already marked as Paid -> return true without re-executing side effects
+            if (transaction.Status == PaymentStatus.Paid)
+            {
+                return true;
+            }
 
+            // State Transition: Must not be an illegal status
             transaction.Status = PaymentStatus.Paid;
             transaction.UpdatedAt = DateTime.UtcNow;
 
@@ -67,6 +74,10 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
                 var plan = await _uow.Planes.GetByIdAsync(subscription.PlanId, cancellationToken);
                 subscription.Status = SubscriptionStatus.Active;
                 subscription.ExpiresAt = DateTime.UtcNow.AddDays(plan?.DurationDays ?? 30);
+                subscription.PaidAmount = plan?.Price ?? transaction.Amount; // Trust server-side plan price, not webhook amount
+                subscription.PaymentRef = $"Fawaterak-{webHook.InvoiceId}";
+                subscription.UpdatedAt = DateTime.UtcNow;
+                
                 await _uow.ClinicSubscriptions.UpdateAsync(subscription, cancellationToken);
             }
             
@@ -75,7 +86,7 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
             return true;
         }
 
-        // 4. Case: New Onboarding (Transaction doesn't exist yet)
+        // 4. Case: New Clinic Onboarding Flow (Initial Account Creation)
         if (webHook.Payload?.OrderId != null && Guid.TryParse(webHook.Payload.OrderId, out var onboardingId))
         {
             var pending = await _uow.PendingOnboardings.GetByIdAsync(onboardingId, cancellationToken);
@@ -84,6 +95,10 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
                 var onboardingData = JsonConvert.DeserializeObject<OnboardNewClinicCommand>(pending.OnboardingDataJson);
                 if (onboardingData != null)
                 {
+                    var plan = await _uow.Planes.GetByIdAsync(onboardingData.PlanId, cancellationToken);
+                    var durationDays = plan?.DurationDays ?? 30;
+                    var verifiedPrice = plan?.Price ?? 0m;
+
                     // a. Create Tenant
                     var tenant = new Tenant
                     {
@@ -93,7 +108,7 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
                         PhoneNumber = onboardingData.Phone,
                         PrimaryColor = onboardingData.PrimaryColor,
                         IsActive = true,
-                        SubscriptionExpiry = DateTime.UtcNow.AddYears(1) // Backup value
+                        SubscriptionExpiry = DateTime.UtcNow.AddDays(durationDays)
                     };
                     await _uow.Tenants.AddAsync(tenant, cancellationToken);
 
@@ -108,16 +123,15 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
                     };
                     await _uow.Users.AddAsync(admin, cancellationToken);
 
-                    // c. Create Active Subscription
-                    var plan = await _uow.Planes.GetByIdAsync(onboardingData.PlanId, cancellationToken);
+                    // c. Create Active Subscription (Bound to verified server plan price)
                     var subscription = new ClinicSubscription
                     {
                         ClinicId = tenant.Id,
                         PlanId = onboardingData.PlanId,
                         StartDate = DateTime.UtcNow,
-                        ExpiresAt = DateTime.UtcNow.AddDays(plan?.DurationDays ?? 30),
+                        ExpiresAt = DateTime.UtcNow.AddDays(durationDays),
                         Status = SubscriptionStatus.Active,
-                        PaidAmount = plan?.Price ?? 0,
+                        PaidAmount = verifiedPrice,
                         PaymentRef = $"Fawaterak-{webHook.InvoiceId}"
                     };
                     await _uow.ClinicSubscriptions.AddAsync(subscription, cancellationToken);
@@ -128,13 +142,13 @@ public class ProcessFawaterakWebhookHandler : IRequestHandler<ProcessFawaterakWe
                         SubscriptionId = subscription.Id,
                         ExternalInvoiceId = webHook.InvoiceId,
                         ExternalInvoiceKey = webHook.InvoiceKey,
-                        Amount = plan?.Price ?? 0,
+                        Amount = verifiedPrice,
                         PaymentMethod = webHook.PaymentMethod,
                         Status = PaymentStatus.Paid
                     };
                     await _uow.PaymentTransactions.AddAsync(newTx, cancellationToken);
 
-                    // e. Cleanup
+                    // e. Delete PendingOnboarding to prevent replay attacks
                     await _uow.PendingOnboardings.DeleteAsync(pending, cancellationToken);
                     
                     await _uow.SaveChangesAsync(cancellationToken);

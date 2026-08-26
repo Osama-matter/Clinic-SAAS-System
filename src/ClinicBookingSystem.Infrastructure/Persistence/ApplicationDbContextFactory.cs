@@ -31,7 +31,17 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
 
     private class DesignTimeTenantProvider : ITenantProvider
     {
+        public Guid? Id => null;
         public Guid? TenantId => null;
+        public bool IsAvailable => false;
+        public bool IsSuperAdmin => false;
         public ClinicBookingSystem.Domain.Enums.UserRole? Role => null;
+        public IDisposable Change(Guid? tenantId) => NullDisposable.Instance;
+
+        private class NullDisposable : IDisposable
+        {
+            public static readonly NullDisposable Instance = new();
+            public void Dispose() { }
+        }
     }
 }

@@ -1,3 +1,4 @@
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.ClinicSubscriptions;
 using ClinicBookingSystem.Application.Features.Payments;
 using MediatR;
@@ -17,25 +18,28 @@ public class ClinicSubscriptionsController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Policy = AppPolicies.AdminOnly)]
     [HttpGet("my")]
     public async Task<ActionResult<MySubscriptionDto>> GetMySubscription()
     {
         return Ok(await _mediator.Send(new GetMySubscriptionQuery()));
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpGet("clinic/{clinicId:guid}")]
     public async Task<ActionResult<IEnumerable<ClinicSubscriptionDto>>> GetByClinicId(Guid clinicId)
     {
         return Ok(await _mediator.Send(new GetClinicSubscriptionsQuery(clinicId)));
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ClinicSubscriptionDto>> GetById(Guid id)
     {
         return Ok(await _mediator.Send(new GetClinicSubscriptionByIdQuery(id)));
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpPost]
     public async Task<ActionResult<ClinicSubscriptionDto>> Create(CreateClinicSubscriptionCommand command)
     {
@@ -43,6 +47,7 @@ public class ClinicSubscriptionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<ClinicSubscriptionDto>> UpdateStatus(Guid id, UpdateClinicSubscriptionStatusCommand command)
     {
@@ -50,6 +55,7 @@ public class ClinicSubscriptionsController : ControllerBase
         return Ok(await _mediator.Send(command));
     }
 
+    [Authorize(Policy = AppPolicies.AdminOnly)]
     [HttpPost("initiate-payment")]
     public async Task<ActionResult<string>> InitiatePayment(InitiateSubscriptionPaymentCommand command)
     {

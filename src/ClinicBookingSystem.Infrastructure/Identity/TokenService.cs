@@ -1,23 +1,29 @@
 using ClinicBookingSystem.Application.Interfaces;
-using Microsoft.Extensions.Configuration;
+using ClinicBookingSystem.Infrastructure.Settings;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using BC = BCrypt.Net.BCrypt;
 
 namespace ClinicBookingSystem.Infrastructure.Identity;
 
 public class TokenService : ITokenService
 {
-    private readonly IConfiguration _config;
+    private readonly JwtOptions _jwtOptions;
 
-    public TokenService(IConfiguration config) => _config = config;
+    public TokenService(IOptions<JwtOptions> jwtOptions)
+    {
+        _jwtOptions = jwtOptions.Value;
+    }
 
     public string GenerateAccessToken(Guid userId, string email, ClinicBookingSystem.Domain.Enums.UserRole role, Guid tenantId)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!));
+        if (string.IsNullOrWhiteSpace(_jwtOptions.Secret))
+            throw new InvalidOperationException("JWT Secret key is not configured.");
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var roleName = role.ToString();
@@ -35,10 +41,9 @@ public class TokenService : ITokenService
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
 
-
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
+            issuer: _jwtOptions.Issuer,
+            audience: _jwtOptions.Audience,
             claims: claimsList,
             expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds

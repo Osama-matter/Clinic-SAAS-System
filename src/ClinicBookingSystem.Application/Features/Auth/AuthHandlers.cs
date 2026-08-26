@@ -4,6 +4,7 @@ using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using BC = BCrypt.Net.BCrypt;
 
 namespace ClinicBookingSystem.Application.Features.Auth;
@@ -16,18 +17,22 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDto>
 
     public async Task<UserDto> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
         // 1. Check for duplicate email
-        if (await _uow.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant(), cancellationToken))
+        if (await _uow.Users.AnyAsync(u => u.Email == normalizedEmail, cancellationToken))
             throw new DomainException("A user with this email already exists.");
 
         // 2. Create patient user — always Patient role, never auto Admin
         var user = new User
         {
-            Name = request.Name,
-            Email = request.Email.ToLowerInvariant(),
+            Name = request.Name.Trim(),
+            Email = normalizedEmail,
             PasswordHash = BC.HashPassword(request.Password, workFactor: 12),
             Role = UserRole.User,  // Always patient
-            TenantId = request.TenantId  // optional, set if clinic is passed
+            TenantId = request.TenantId,  // optional, set if clinic is passed
+            AccessFailedCount = 0,
+            LockoutEnabled = true
         };
 
         await _uow.Users.AddAsync(user, cancellationToken);
@@ -66,16 +71,19 @@ public class CreateAdminCommandHandler : IRequestHandler<CreateAdminCommand, Use
         var targetTenant = await _uow.Tenants.GetByIdAsync(targetTenantId.Value, cancellationToken)
             ?? throw new NotFoundException("Tenant", targetTenantId.Value);
 
-        if (await _uow.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant(), cancellationToken))
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        if (await _uow.Users.AnyAsync(u => u.Email == normalizedEmail, cancellationToken))
             throw new DomainException("A user with this email already exists.");
 
         var user = new User
         {
-            Name = request.Name,
-            Email = request.Email.ToLowerInvariant(),
+            Name = request.Name.Trim(),
+            Email = normalizedEmail,
             PasswordHash = BC.HashPassword(request.Password, workFactor: 12),
             Role = UserRole.Admin,
-            TenantId = targetTenant.Id
+            TenantId = targetTenant.Id,
+            AccessFailedCount = 0,
+            LockoutEnabled = true
         };
 
         await _uow.Users.AddAsync(user, cancellationToken);
@@ -98,19 +106,52 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokenDto>
 
     public async Task<AuthTokenDto> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        var user = await _uow.Users.FirstOrDefaultAsync(u => u.Email == request.Email.ToLowerInvariant(), cancellationToken)
-            ?? throw new UnauthorizedActionException("Invalid email or password.");
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await _uow.Users.FirstOrDefaultAsync(
+            u => u.Email == normalizedEmail,
+            cancellationToken);
 
-        if (!BC.Verify(request.Password, user.PasswordHash))
+        if (user == null)
             throw new UnauthorizedActionException("Invalid email or password.");
 
-        // ── Check clinic activation & subscription ────────────────────
-        if (user.TenantId.HasValue && user.Role != UserRole.User)
+        // ── 1. Check account lockout ──────────────────────────────────
+        if (user.IsLockedOut)
+        {
+            var remaining = user.LockoutEnd!.Value.Subtract(DateTime.UtcNow);
+            var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+            throw new UnauthorizedActionException($"Account is temporarily locked due to multiple failed login attempts. Please try again in {minutes} minute(s).");
+        }
+
+        // ── 2. Verify password with constant-time/workfactor ──────────
+        if (!BC.Verify(request.Password, user.PasswordHash))
+        {
+            if (user.LockoutEnabled)
+            {
+                user.AccessFailedCount++;
+                if (user.AccessFailedCount >= 5)
+                {
+                    user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
+                }
+                await _uow.Users.UpdateAsync(user, cancellationToken);
+                await _uow.SaveChangesAsync(cancellationToken);
+            }
+
+            throw new UnauthorizedActionException("Invalid email or password.");
+        }
+
+        // ── 3. Reset failed count on successful authentication ─────────
+        if (user.AccessFailedCount > 0 || user.LockoutEnd.HasValue)
+        {
+            user.AccessFailedCount = 0;
+            user.LockoutEnd = null;
+        }
+
+        // ── 4. Check clinic activation & subscription ──────────────────
+        if (user.TenantId.HasValue && user.Role != UserRole.User && user.Role != UserRole.SuperAdmin)
         {
             var tenant = await _uow.Tenants.GetByIdAsync(user.TenantId.Value, cancellationToken);
             if (tenant != null && !tenant.IsActive)
             {
-                // Check if there's a pending payment subscription
                 var subs = await _uow.ClinicSubscriptions.GetAllAsync(
                     s => s.ClinicId == tenant.Id, cancellationToken);
                 var latestSub = subs.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
@@ -126,6 +167,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokenDto>
             }
         }
 
+        // ── 5. Generate secure tokens & single-use refresh token ───────
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, user.Role, user.TenantId ?? Guid.Empty);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
@@ -158,10 +200,23 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
         var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
 
         var user = await _uow.Users.FirstOrDefaultAsync(
-            u => u.RefreshToken == tokenHash && u.RefreshTokenExpiry > DateTime.UtcNow,
-            cancellationToken)
-            ?? throw new UnauthorizedActionException("Invalid or expired refresh token.");
+            u => u.RefreshToken == tokenHash,
+            cancellationToken);
 
+        if (user == null)
+            throw new UnauthorizedActionException("Invalid or revoked refresh token.");
+
+        if (!user.RefreshTokenExpiry.HasValue || user.RefreshTokenExpiry.Value <= DateTime.UtcNow)
+        {
+            // Invalidate expired token
+            user.RefreshToken = null;
+            user.RefreshTokenExpiry = null;
+            await _uow.Users.UpdateAsync(user, cancellationToken);
+            await _uow.SaveChangesAsync(cancellationToken);
+            throw new UnauthorizedActionException("Refresh token has expired. Please log in again.");
+        }
+
+        // Single-use token rotation
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, user.Role, user.TenantId ?? Guid.Empty);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
@@ -176,16 +231,107 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
     }
 }
 
+public class LogoutCommandHandler : IRequestHandler<LogoutCommand, bool>
+{
+    private readonly IUnitOfWork _uow;
+    private readonly ICurrentUserService _currentUser;
+    private readonly ITokenService _tokenService;
+
+    public LogoutCommandHandler(IUnitOfWork uow, ICurrentUserService currentUser, ITokenService tokenService)
+    {
+        _uow = uow;
+        _currentUser = currentUser;
+        _tokenService = tokenService;
+    }
+
+    public async Task<bool> Handle(LogoutCommand request, CancellationToken cancellationToken)
+    {
+        User? user = null;
+
+        if (_currentUser.UserId.HasValue)
+        {
+            user = await _uow.Users.GetByIdAsync(_currentUser.UserId.Value, cancellationToken);
+        }
+
+        if (user == null && !string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
+            user = await _uow.Users.FirstOrDefaultAsync(
+                u => u.RefreshToken == tokenHash,
+                cancellationToken);
+        }
+
+        if (user != null)
+        {
+            user.RefreshToken = null;
+            user.RefreshTokenExpiry = null;
+            await _uow.Users.UpdateAsync(user, cancellationToken);
+            await _uow.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
+    }
+}
+
+public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, bool>
+{
+    private readonly IUnitOfWork _uow;
+    private readonly ITokenService _tokenService;
+
+    public RevokeTokenCommandHandler(IUnitOfWork uow, ITokenService tokenService)
+    {
+        _uow = uow;
+        _tokenService = tokenService;
+    }
+
+    public async Task<bool> Handle(RevokeTokenCommand request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return false;
+
+        var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
+        var user = await _uow.Users.FirstOrDefaultAsync(
+            u => u.RefreshToken == tokenHash,
+            cancellationToken);
+
+        if (user != null)
+        {
+            user.RefreshToken = null;
+            user.RefreshTokenExpiry = null;
+            await _uow.Users.UpdateAsync(user, cancellationToken);
+            await _uow.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+
+        return false;
+    }
+}
+
 public class GetPatientsQueryHandler : IRequestHandler<GetPatientsQuery, IEnumerable<UserDto>>
 {
     private readonly IUnitOfWork _uow;
+    private readonly ICurrentUserService _currentUser;
 
-    public GetPatientsQueryHandler(IUnitOfWork uow) => _uow = uow;
+    public GetPatientsQueryHandler(IUnitOfWork uow, ICurrentUserService currentUser)
+    {
+        _uow = uow;
+        _currentUser = currentUser;
+    }
 
     public async Task<IEnumerable<UserDto>> Handle(GetPatientsQuery request, CancellationToken cancellationToken)
     {
+        var isSuperAdmin = _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6";
+        var tenantId = _currentUser.TenantId;
+
+        if (!isSuperAdmin && !tenantId.HasValue)
+            throw new UnauthorizedActionException("Tenant context is required to retrieve patient records.");
+
+        var targetTenantId = tenantId.GetValueOrDefault();
+
         var patients = await _uow.Users.GetAllAsync(
-            u => u.Role == UserRole.User,
+            u => !u.IsDeleted &&
+                 (u.Role == UserRole.User || u.Role == UserRole.Patient) &&
+                 (isSuperAdmin ? (!tenantId.HasValue || u.TenantId == targetTenantId) : u.TenantId == targetTenantId),
             cancellationToken);
 
         return patients.Select(u => new UserDto(
@@ -193,6 +339,7 @@ public class GetPatientsQueryHandler : IRequestHandler<GetPatientsQuery, IEnumer
             u.Name,
             u.Email,
             ((int)u.Role).ToString(),
-            u.CreatedAt));
+            u.CreatedAt,
+            u.TenantId));
     }
 }

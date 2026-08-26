@@ -52,22 +52,35 @@ public class ApplicationDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
-        var applyTenantFilterMethod = GetType()
-            .GetMethod(nameof(ApplyTenantFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var applyTenantAndSoftDeleteFilterMethod = GetType()
+            .GetMethod(nameof(ApplyTenantAndSoftDeleteFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var applyTenantOnlyFilterMethod = GetType()
+            .GetMethod(nameof(ApplyTenantOnlyFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var applySoftDeleteOnlyFilterMethod = GetType()
+            .GetMethod(nameof(ApplySoftDeleteOnlyFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (typeof(ITenantEntity).IsAssignableFrom(entityType.ClrType)
-                && typeof(ISoftDelete).IsAssignableFrom(entityType.ClrType)
-                && entityType.ClrType != typeof(User))
+            var clrType = entityType.ClrType;
+            var isTenantEntity = typeof(ITenantEntity).IsAssignableFrom(clrType);
+            var isSoftDelete = typeof(ISoftDelete).IsAssignableFrom(clrType);
+
+            if (isTenantEntity && isSoftDelete)
             {
-                var method = applyTenantFilterMethod!.MakeGenericMethod(entityType.ClrType);
-                method.Invoke(this, new object[] { modelBuilder });
+                applyTenantAndSoftDeleteFilterMethod!.MakeGenericMethod(clrType).Invoke(this, new object[] { modelBuilder });
+            }
+            else if (isTenantEntity)
+            {
+                applyTenantOnlyFilterMethod!.MakeGenericMethod(clrType).Invoke(this, new object[] { modelBuilder });
+            }
+            else if (isSoftDelete)
+            {
+                applySoftDeleteOnlyFilterMethod!.MakeGenericMethod(clrType).Invoke(this, new object[] { modelBuilder });
             }
         }
     }
 
-    private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder)
+    private void ApplyTenantAndSoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)
         where TEntity : class, ITenantEntity, ISoftDelete
     {
         modelBuilder.Entity<TEntity>().HasQueryFilter(e => 
@@ -75,22 +88,36 @@ public class ApplicationDbContext : DbContext
             (CurrentUserRole == UserRole.SuperAdmin || (CurrentTenantId != null && e.TenantId == CurrentTenantId)));
     }
 
+    private void ApplyTenantOnlyFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ITenantEntity
+    {
+        modelBuilder.Entity<TEntity>().HasQueryFilter(e => 
+            CurrentUserRole == UserRole.SuperAdmin || (CurrentTenantId != null && e.TenantId == CurrentTenantId));
+    }
+
+    private void ApplySoftDeleteOnlyFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ISoftDelete
+    {
+        modelBuilder.Entity<TEntity>().HasQueryFilter(e => !e.IsDeleted);
+    }
+
+    public override int SaveChanges()
+    {
+        EnforceTenantRules();
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        {
+            if (entry.State == EntityState.Modified)
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+        }
+        return base.SaveChanges();
+    }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => SaveChangesInternalAsync(cancellationToken);
 
     private async Task<int> SaveChangesInternalAsync(CancellationToken cancellationToken)
     {
-        foreach (var entry in ChangeTracker.Entries<ITenantEntity>())
-        {
-            if (entry.State == EntityState.Added)
-            {
-                if (entry.Property(nameof(ITenantEntity.TenantId)).CurrentValue == null)
-                {
-                    entry.Property(nameof(ITenantEntity.TenantId)).CurrentValue = _tenantProvider.TenantId;
-                }
-            }
-        }
-
+        EnforceTenantRules();
         await EnforcePlanLimitsAsync(cancellationToken);
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
@@ -99,7 +126,107 @@ public class ApplicationDbContext : DbContext
                 entry.Entity.UpdatedAt = DateTime.UtcNow;
         }
 
+        RecordAuditLogs();
+
         return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void RecordAuditLogs()
+    {
+        var sensitiveEntities = new HashSet<string> { "User", "Tenant", "ClinicSubscription", "PatientAppointment", "Visit" };
+        var entries = ChangeTracker.Entries<BaseEntity>()
+            .Where(e => !(e.Entity is AuditLog) && 
+                        (e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted) &&
+                        sensitiveEntities.Contains(e.Entity.GetType().Name))
+            .ToList();
+
+        if (!entries.Any()) return;
+
+        var performer = _tenantProvider.Role != null ? $"{_tenantProvider.Role} (Tenant: {_tenantProvider.TenantId})" : "System";
+
+        foreach (var entry in entries)
+        {
+            var entityName = entry.Entity.GetType().Name;
+            var action = entry.State.ToString();
+
+            var log = new AuditLog
+            {
+                EntityName = entityName,
+                Action = action,
+                PerformedBy = performer,
+                Timestamp = DateTime.UtcNow
+            };
+
+            AuditLogs.Add(log);
+        }
+    }
+
+    private void EnforceTenantRules()
+    {
+        var isSuperAdmin = CurrentUserRole == UserRole.SuperAdmin || _tenantProvider.IsSuperAdmin;
+        var trustedTenantId = _tenantProvider.TenantId;
+
+        foreach (var entry in ChangeTracker.Entries<ITenantEntity>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (!isSuperAdmin)
+                {
+                    // Non-SuperAdmin CANNOT inject arbitrary TenantId.
+                    // If trustedTenantId exists, enforce it unconditionally over any client value.
+                    if (trustedTenantId.HasValue)
+                    {
+                        entry.Property(nameof(ITenantEntity.TenantId)).CurrentValue = trustedTenantId.Value;
+                    }
+                    else if (entry.Property(nameof(ITenantEntity.TenantId)).CurrentValue == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot create tenant-scoped entity '{entry.Entity.GetType().Name}' without an active trusted tenant context.");
+                    }
+                }
+                else
+                {
+                    // SuperAdmin may explicitly set TenantId on entity or fallback to current scoped tenant
+                    if (entry.Property(nameof(ITenantEntity.TenantId)).CurrentValue == null && trustedTenantId.HasValue)
+                    {
+                        entry.Property(nameof(ITenantEntity.TenantId)).CurrentValue = trustedTenantId.Value;
+                    }
+                }
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                if (!isSuperAdmin)
+                {
+                    // TenantId is strictly IMMUTABLE on UPDATE / PATCH for non-SuperAdmin
+                    var tenantIdProp = entry.Property(nameof(ITenantEntity.TenantId));
+                    var originalTenantId = (Guid?)tenantIdProp.OriginalValue;
+                    var currentTenantId = (Guid?)tenantIdProp.CurrentValue;
+
+                    if (originalTenantId.HasValue && currentTenantId.HasValue && originalTenantId.Value != currentTenantId.Value)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cross-tenant security violation: TenantId is immutable on '{entry.Entity.GetType().Name}' and cannot be altered.");
+                    }
+
+                    // Prevent EF Core from issuing TenantId column in SQL UPDATE statements
+                    tenantIdProp.IsModified = false;
+                }
+            }
+            else if (entry.State == EntityState.Deleted)
+            {
+                if (!isSuperAdmin && trustedTenantId.HasValue)
+                {
+                    var tenantIdProp = entry.Property(nameof(ITenantEntity.TenantId));
+                    var entityTenantId = (Guid?)tenantIdProp.OriginalValue ?? (Guid?)tenantIdProp.CurrentValue;
+
+                    if (entityTenantId.HasValue && entityTenantId.Value != trustedTenantId.Value)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cross-tenant security violation: Cannot delete entity '{entry.Entity.GetType().Name}' belonging to another tenant.");
+                    }
+                }
+            }
+        }
     }
 
     private async Task EnforcePlanLimitsAsync(CancellationToken cancellationToken)

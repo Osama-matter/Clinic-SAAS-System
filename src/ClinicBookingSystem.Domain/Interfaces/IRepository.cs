@@ -57,8 +57,7 @@ public interface IUnitOfWork // unit of work  pattern  to  group multiple reposi
     IRepository<LabOrder> LabOrders { get; }
     IRepository<ImagingOrder> ImagingOrders { get; }
     IRepository<Result> Results { get; }
-    
-
+    IRepository<Drug> Drugs { get; }
     // plane syatem 
 
     IRepository<Plan> Planes { get; }
@@ -74,9 +73,8 @@ public interface IUnitOfWork // unit of work  pattern  to  group multiple reposi
 
 
 
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default); // save changes method to commit all the changes made to the repositories in a single transaction and also can send cancellation token to cancel the operation if needed
-
-    // summary of i Uint of work  pattern  is  to  provide a single point of access to multiple repositories and to manage the lifecycle of the repositories and to commit all the changes made to the repositories in a single transaction
-    // can make  implementation of this interface  using  Entity Framework Core  and also can make a mock implementation for unit testing
-   
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task BeginTransactionAsync(CancellationToken cancellationToken = default);
+    Task CommitTransactionAsync(CancellationToken cancellationToken = default);
+    Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
 }

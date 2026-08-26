@@ -11,12 +11,20 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(u => u.Id);
         builder.Property(u => u.Name).IsRequired().HasMaxLength(100);
         builder.Property(u => u.Email).IsRequired().HasMaxLength(200);
-        builder.HasIndex(u => u.Email).IsUnique();
+        
+        // Tenant-scoped unique email for clinic users (active records only)
+        builder.HasIndex(u => new { u.TenantId, u.Email })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0 AND [TenantId] IS NOT NULL");
+
+        // Global unique email for super-admins without tenant (active records only)
+        builder.HasIndex(u => u.Email)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0 AND [TenantId] IS NULL");
+
         builder.HasIndex(u => u.TenantId);
-        builder.HasIndex(u => new { u.TenantId, u.Email });
         builder.HasIndex(u => new { u.TenantId, u.Role });
         builder.Property(u => u.PasswordHash).IsRequired();
-        builder.HasQueryFilter(u => !u.IsDeleted);
     }
 }
 
@@ -28,7 +36,12 @@ public class PatientAppointmentConfiguration : IEntityTypeConfiguration<PatientA
         builder.HasOne(a => a.Doctor).WithMany(d => d.Appointments).HasForeignKey(a => a.DoctorId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(a => a.User).WithMany(u => u.Appointments).HasForeignKey(a => a.UserId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         builder.Property(a => a.BookingReference).IsRequired().HasMaxLength(20);
-        builder.HasIndex(a => a.BookingReference).IsUnique();
+        
+        // Unique booking reference among active records
+        builder.HasIndex(a => a.BookingReference)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
         builder.HasIndex(a => a.TenantId);
         builder.HasIndex(a => new { a.TenantId, a.DoctorId, a.SlotDateTime });
         builder.HasIndex(a => new { a.TenantId, a.Status, a.SlotDateTime });
@@ -39,8 +52,9 @@ public class PatientAppointmentConfiguration : IEntityTypeConfiguration<PatientA
         builder.Property(a => a.PatientPhone).HasMaxLength(20);
         builder.Property(a => a.PatientEmail).HasMaxLength(200);
 
+        // Prevent double booking race condition at database level for non-cancelled and non-deleted slots
         builder.HasIndex(a => new { a.DoctorId, a.SlotDateTime })
-            .HasFilter("[Status] != 2") // Status 2 is Cancelled
+            .HasFilter("[Status] != 2 AND [IsDeleted] = 0") // Status 2 is Cancelled
             .IsUnique();
     }
 }
@@ -106,6 +120,7 @@ public class PlanConfiguration : IEntityTypeConfiguration<Plan>
     {
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Name).IsRequired().HasMaxLength(150);
+        builder.HasIndex(p => p.Name).IsUnique().HasFilter("[IsDeleted] = 0");
         builder.Property(p => p.Price).HasColumnType("decimal(10,2)");
         builder.Property(p => p.IsActive).HasDefaultValue(true);
         builder.Property(p => p.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
@@ -127,6 +142,7 @@ public class FeatureConfiguration : IEntityTypeConfiguration<Feature>
         builder.HasKey(f => f.Id);
         builder.Property(f => f.Name).IsRequired().HasMaxLength(150);
         builder.Property(f => f.Code).IsRequired().HasMaxLength(50);
+        builder.HasIndex(f => f.Code).IsUnique().HasFilter("[IsDeleted] = 0");
 
         builder.HasMany(f => f.PlanFeatures)
                .WithOne(pf => pf.Feature)
@@ -151,7 +167,7 @@ public class ClinicConfiguration : IEntityTypeConfiguration<Tenant>
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Name).IsRequired().HasMaxLength(150);
         builder.Property(c => c.Subdomain).HasMaxLength(120);
-        builder.HasIndex(c => c.Subdomain).IsUnique();
+        builder.HasIndex(c => c.Subdomain).IsUnique().HasFilter("[IsDeleted] = 0 AND [Subdomain] IS NOT NULL");
         builder.Property(c => c.LogoUrl);
         builder.Property(c => c.ClinicImageUrl);
         builder.Property(c => c.Address).HasMaxLength(300);

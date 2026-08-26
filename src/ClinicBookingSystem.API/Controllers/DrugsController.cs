@@ -1,8 +1,11 @@
 using ClinicBookingSystem.API.Filters;
-using ClinicBookingSystem.Infrastructure.Persistence;
+using ClinicBookingSystem.Application.Features.Drugs;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ClinicBookingSystem.API.Controllers;
 
@@ -12,42 +15,20 @@ namespace ClinicBookingSystem.API.Controllers;
 [RequireActiveSubscription]
 public class DrugsController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IMediator _mediator;
 
-    public DrugsController(ApplicationDbContext context)
+    public DrugsController(IMediator mediator)
     {
-        _context = context;
+        _mediator = mediator;
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult<IEnumerable<object>>> Search([FromQuery] string query = "", [FromQuery] int take = 15)
+    public async Task<ActionResult<IEnumerable<DrugDto>>> Search(
+        [FromQuery] string query = "", 
+        [FromQuery] int take = 15, 
+        CancellationToken cancellationToken = default)
     {
-        take = Math.Clamp(take, 1, 50);
-        var normalizedQuery = query.Trim();
-
-        if (!await _context.Drugs.AnyAsync())
-        {
-            await DbInitializer.SeedDrugsAsync(_context);
-        }
-
-        var drugsQuery = _context.Drugs.AsNoTracking().Where(d => !d.IsDeleted);
-
-        if (!string.IsNullOrWhiteSpace(normalizedQuery))
-        {
-            drugsQuery = drugsQuery.Where(d => d.Name.Contains(normalizedQuery) || d.Form.Contains(normalizedQuery));
-        }
-
-        var drugs = await drugsQuery
-            .OrderBy(d => d.Name)
-            .Take(take)
-            .Select(d => new
-            {
-                d.Id,
-                d.Name,
-                d.Form
-            })
-            .ToListAsync();
-
-        return Ok(drugs);
+        var result = await _mediator.Send(new SearchDrugsQuery(query, take), cancellationToken);
+        return Ok(result);
     }
 }

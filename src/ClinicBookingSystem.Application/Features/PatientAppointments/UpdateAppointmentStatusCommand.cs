@@ -25,10 +25,18 @@ public class UpdateAppointmentStatusCommandHandler : IRequestHandler<UpdateAppoi
 
     public async Task<Unit> Handle(UpdateAppointmentStatusCommand request, CancellationToken cancellationToken)
     {
+        var isStaff = _currentUser.Role == "Admin" || _currentUser.Role == "2" ||
+                      _currentUser.Role == "Receptionist" || _currentUser.Role == "3" ||
+                      _currentUser.Role == "Doctor" || _currentUser.Role == "4" ||
+                      _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6";
+
+        if (!isStaff)
+            throw new UnauthorizedActionException("Only clinic staff or administrators can update appointment statuses.");
+
         var patientAppointment = await _uow.Appointments.GetByIdAsync(request.AppointmentId, cancellationToken)
             ?? throw new NotFoundException(nameof(PatientAppointment), request.AppointmentId);
 
-        var isAdmin = _currentUser.Role == "Admin" || _currentUser.Role == "2";
+        var isAdmin = _currentUser.Role == "Admin" || _currentUser.Role == "2" || _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6";
 
         if (request.NewStatus.HasValue)
         {

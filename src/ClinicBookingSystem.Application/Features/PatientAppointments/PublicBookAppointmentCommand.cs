@@ -81,6 +81,7 @@ public class PublicBookAppointmentCommandHandler : IRequestHandler<PublicBookApp
             appointment.SlotDateTime,
             appointment.Status,
             appointment.CreatedAt,
-            appointment.IsPaid);
+            appointment.IsPaid,
+            appointment.SecurityPin);
     }
 }

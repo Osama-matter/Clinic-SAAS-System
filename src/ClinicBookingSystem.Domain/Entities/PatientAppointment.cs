@@ -19,6 +19,7 @@ public class PatientAppointment : BaseEntity, ITenantEntity
     public string? PatientName { get; set; }
     public string? PatientPhone { get; set; }
     public string? PatientEmail { get; set; }
+    public string? SecurityPin { get; set; }
 
     // Navigation
     public Tenant? Tenant { get; set; }
@@ -41,6 +42,7 @@ public class PatientAppointment : BaseEntity, ITenantEntity
             SlotDateTime = slotDateTime,
             Status = AppointmentStatus.Pending,
             BookingReference = GenerateBookingReference(),
+            SecurityPin = GenerateSecurityPin(),
             Notes = notes
         };
     }
@@ -64,12 +66,16 @@ public class PatientAppointment : BaseEntity, ITenantEntity
             SlotDateTime = slotDateTime,
             Status = AppointmentStatus.Pending,
             BookingReference = GenerateBookingReference(),
+            SecurityPin = GenerateSecurityPin(),
             Notes = notes
         };
     }
 
     private static string GenerateBookingReference()
         => Guid.NewGuid().ToString("N")[..12].ToUpper();
+
+    private static string GenerateSecurityPin()
+        => System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 999999).ToString();
 
     // ── Domain Logic & State Transitions ─────────────────────
     public void Confirm()

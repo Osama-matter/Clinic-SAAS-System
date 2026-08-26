@@ -25,11 +25,13 @@ public class CancelAppointmentCommandHandler : IRequestHandler<CancelAppointment
         var patientAppointment = await _uow.Appointments.GetByIdAsync(request.AppointmentId, cancellationToken)
             ?? throw new NotFoundException(nameof(PatientAppointment), request.AppointmentId);
 
-        var isAdmin = _currentUser.Role == "Admin" || _currentUser.Role == "2";
+        var isStaffOrAdmin = _currentUser.Role == "Admin" || _currentUser.Role == "2" ||
+                             _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6" ||
+                             _currentUser.Role == "Receptionist" || _currentUser.Role == "3";
         var isOwner = patientAppointment.UserId == _currentUser.UserId;
 
-        if (!isAdmin && !isOwner)
-            throw new UnauthorizedActionException();
+        if (!isStaffOrAdmin && !isOwner)
+            throw new UnauthorizedActionException("You are not authorized to cancel this appointment.");
 
         patientAppointment.Status = AppointmentStatus.Cancelled;
         patientAppointment.CancelledAt = DateTime.UtcNow;

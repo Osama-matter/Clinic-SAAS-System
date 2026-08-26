@@ -2,7 +2,7 @@ using ClinicBookingSystem.Domain.Enums;
 
 namespace ClinicBookingSystem.Domain.Entities;
 
-public class User : BaseEntity
+public class User : BaseEntity, ITenantEntity
 {
     public Guid? TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -13,6 +13,12 @@ public class User : BaseEntity
     public DateTime? RefreshTokenExpiry { get; set; }
     public string? PhoneNumber { get; set; }
     public bool SmsNotificationsEnabled { get; set; } = false;
+
+    // Account Lockout / Brute-force protection
+    public int AccessFailedCount { get; set; } = 0;
+    public DateTime? LockoutEnd { get; set; }
+    public bool LockoutEnabled { get; set; } = true;
+    public bool IsLockedOut => LockoutEnabled && LockoutEnd.HasValue && LockoutEnd.Value > DateTime.UtcNow;
 
     public Guid? DoctorId { get; set; }
 

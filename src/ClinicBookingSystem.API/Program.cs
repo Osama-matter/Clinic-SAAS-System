@@ -1,4 +1,5 @@
 using ClinicBookingSystem.API.Extensions;
+using ClinicBookingSystem.API.Filters;
 using ClinicBookingSystem.API.Middleware;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using Hangfire;
@@ -14,6 +15,8 @@ builder.Host.UseSerilog((ctx, lc) => lc
     .WriteTo.File("logs/eams-.txt", rollingInterval: RollingInterval.Day));
 
 // ── Services ─────────────────────────────────────────
+builder.Configuration.ValidateSensitiveConfiguration(builder.Environment);
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -26,45 +29,77 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddSwaggerWithJwt();
 builder.Services.AddRateLimiting();
+builder.Services.AddHealthChecks();
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (allowedOrigins.Length == 0 && builder.Environment.IsDevelopment())
+{
+    allowedOrigins = ["http://localhost:3000", "http://localhost:5173", "https://localhost:3000", "https://localhost:5173"];
+}
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.SetIsOriginAllowed(_ => true) // Allow any origin in development
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
+        else
+        {
+            policy.DisallowCredentials();
+        }
     });
 });
 
 var app = builder.Build();
 var runStartupTasks = builder.Configuration.GetValue<bool>("RunStartupTasks");
 
+// ── Security Headers & Transport ──────────────────────
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    await next();
+});
+
 // ── Middleware ────────────────────────────────────────
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 
-app.UseSwagger();
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Clinic Booking System API v1"));
+var enableSwagger = app.Environment.IsDevelopment() || 
+                    builder.Configuration.GetValue<bool>("Security:EnableSwaggerInProduction");
+
+if (enableSwagger)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Clinic Booking System API v1"));
+}
 
 app.UseHttpsRedirection();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
-app.UseStaticFiles(new StaticFileOptions
-{
-    OnPrepareResponse = ctx =>
-    {
-        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-        ctx.Context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    }
-});
+app.UseStaticFiles();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 // ── Hangfire Dashboard ────────────────────────────────
-app.UseHangfireDashboard("/hangfire");
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new HangfireDashboardAuthorizationFilter(app.Environment)]
+});
 
 // ── Startup Tasks (Migrate, Seed, Hangfire Jobs) ───────
 if (runStartupTasks)
@@ -95,7 +130,8 @@ if (runStartupTasks)
             Log.Information("Seeding database check...");
             var env = services.GetRequiredService<IWebHostEnvironment>();
             var webRoot = env.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
-            await ClinicBookingSystem.Infrastructure.Persistence.DbInitializer.SeedAsync(db, webRoot);
+            var seedOptions = builder.Configuration.GetSection(ClinicBookingSystem.Infrastructure.Settings.SeedDataOptions.SectionName).Get<ClinicBookingSystem.Infrastructure.Settings.SeedDataOptions>();
+            await ClinicBookingSystem.Infrastructure.Persistence.DbInitializer.SeedAsync(db, webRoot, seedOptions);
             
             // Recurring Jobs
             Log.Information("Registering recurring jobs...");
@@ -132,3 +168,5 @@ else
 }
 
 app.Run();
+
+public partial class Program { }

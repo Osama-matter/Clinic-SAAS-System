@@ -24,6 +24,9 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+publish/
+publish*/
+publish_output/
 
 ## NuGet
 *.nupkg

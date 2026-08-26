@@ -16,4 +16,8 @@ public record LoginCommand(string Email, string Password) : IRequest<AuthTokenDt
 
 public record RefreshTokenCommand(string RefreshToken) : IRequest<AuthTokenDto>;
 
+public record LogoutCommand(string? RefreshToken = null) : IRequest<bool>;
+
+public record RevokeTokenCommand(string RefreshToken) : IRequest<bool>;
+
 public record GetPatientsQuery() : IRequest<IEnumerable<UserDto>>;

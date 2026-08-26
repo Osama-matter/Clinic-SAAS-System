@@ -21,26 +21,26 @@ public class LookupAppointmentByReferenceQueryHandler : IRequestHandler<LookupAp
 
     public async Task<PublicAppointmentDto> Handle(LookupAppointmentByReferenceQuery request, CancellationToken cancellationToken)
     {
-        var hasRef = !string.IsNullOrWhiteSpace(request.BookingReference);
-        var hasPhone = !string.IsNullOrWhiteSpace(request.Phone);
-
-        if (!hasRef && !hasPhone)
-            throw new DomainException("Please provide a booking reference or a phone number.");
+        if (string.IsNullOrWhiteSpace(request.BookingReference) || string.IsNullOrWhiteSpace(request.Phone))
+            throw new DomainException("Both booking reference and patient phone number are required for appointment lookup.");
 
         var tenantId = request.TenantId ?? _tenantProvider.TenantId;
         if (!tenantId.HasValue)
             throw new DomainException("Tenant ID is required to lookup appointments.");
 
+        var normalizedPhone = request.Phone.Trim();
+        var normalizedRef = request.BookingReference.Trim();
+
         var appointment = await _uow.Appointments
             .AsQueryable()
             .IgnoreQueryFilters()
             .Where(a => !a.IsDeleted && a.TenantId == tenantId.Value &&
-                 (!hasRef || a.BookingReference == request.BookingReference) &&
-                 (!hasPhone || a.PatientPhone == request.Phone || (a.User != null && a.User.PhoneNumber == request.Phone)))
+                 a.BookingReference == normalizedRef &&
+                 (a.PatientPhone == normalizedPhone || (a.User != null && a.User.PhoneNumber == normalizedPhone)))
             .Include(a => a.Doctor)
             .OrderByDescending(a => a.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new NotFoundException("Appointment", request.BookingReference ?? request.Phone ?? "");
+            ?? throw new NotFoundException("Appointment", request.BookingReference);
 
         return new PublicAppointmentDto(
             appointment.Id,

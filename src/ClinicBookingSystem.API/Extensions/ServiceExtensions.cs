@@ -12,6 +12,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
@@ -33,15 +34,25 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration config)
     {
+        var connectionString = config.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("Connection string 'DefaultConnection' is required but was not found.");
+        }
+
         services.AddDbContext<ApplicationDbContext>(opt =>
-            opt.UseSqlServer(config.GetConnectionString("DefaultConnection")));
-        services.Configure<EmailSettings>(config.GetSection("EmailSettings"));
-        services.Configure<FawaterakOptions>(config.GetSection("Fawaterak"));
+            opt.UseSqlServer(connectionString));
+
+        services.Configure<JwtOptions>(config.GetSection(JwtOptions.SectionName));
+        services.Configure<EmailSettings>(config.GetSection(EmailSettings.SectionName));
+        services.Configure<FawaterakOptions>(config.GetSection(FawaterakOptions.SectionName));
+        services.Configure<SeedDataOptions>(config.GetSection(SeedDataOptions.SectionName));
 
         services.AddHttpClient();
 
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddScoped<ITenantProvider, TenantProvider>();
+        services.AddScoped<TenantProvider>();
+        services.AddScoped<ITenantProvider>(sp => sp.GetRequiredService<TenantProvider>());
+        services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<TenantProvider>());
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IReportExportService, ReportExportService>();
@@ -59,7 +70,7 @@ public static class ServiceExtensions
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UseSqlServerStorage(config.GetConnectionString("DefaultConnection")));
+            .UseSqlServerStorage(connectionString));
         services.AddHangfireServer();
 
         return services;
@@ -67,19 +78,32 @@ public static class ServiceExtensions
 
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration config)
     {
+        var jwtSection = config.GetSection(JwtOptions.SectionName);
+        var jwtOptions = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
+
+        // Safe fallback for development initialization if not set
+        var secret = string.IsNullOrWhiteSpace(jwtOptions.Secret)
+            ? "DEVELOPMENT_INSECURE_SECRET_KEY_REPLACE_IN_PRODUCTION_32_BYTES"
+            : jwtOptions.Secret;
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(opt =>
             {
+                opt.RequireHttpsMetadata = false;
+                opt.SaveToken = false;
                 opt.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = config["Jwt:Issuer"],
-                    ValidAudience = config["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(config["Jwt:Secret"]!)),
+                    RequireExpirationTime = true,
+                    RequireSignedTokens = true,
+                    ClockSkew = TimeSpan.Zero,
+                    ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
+                    ValidIssuer = string.IsNullOrWhiteSpace(jwtOptions.Issuer) ? "ClinicBookingSystem.API" : jwtOptions.Issuer,
+                    ValidAudience = string.IsNullOrWhiteSpace(jwtOptions.Audience) ? "ClinicBookingSystem.Client" : jwtOptions.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                     RoleClaimType = ClaimTypes.Role,
                     NameClaimType = ClaimTypes.NameIdentifier
                 };
@@ -87,14 +111,48 @@ public static class ServiceExtensions
 
         services.AddAuthorization(opt =>
         {
-            opt.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "2"));
-            opt.AddPolicy("SuperAdminOnly", policy => policy.RequireRole("SuperAdmin", "6"));
-            opt.AddPolicy("UserOrAdmin", policy => policy.RequireRole("User", "Admin", "1", "2", "0"));
-            opt.AddPolicy("DoctorOnly", policy => policy.RequireRole("Doctor", "4", "Admin", "2", "Receptionist", "3"));
-            opt.AddPolicy("StaffOnly", policy => policy.RequireRole("Admin", "Receptionist", "Doctor", "2", "3", "4"));
+            opt.AddPolicy(ClinicBookingSystem.Application.Constants.AppPolicies.SuperAdminOnly, policy =>
+                policy.RequireRole(ClinicBookingSystem.Application.Constants.AppRoles.SuperAdmin, "6"));
+
+            opt.AddPolicy(ClinicBookingSystem.Application.Constants.AppPolicies.AdminOnly, policy =>
+                policy.RequireRole(ClinicBookingSystem.Application.Constants.AppRoles.Admin, ClinicBookingSystem.Application.Constants.AppRoles.SuperAdmin, "2", "6"));
+
+            opt.AddPolicy(ClinicBookingSystem.Application.Constants.AppPolicies.StaffOnly, policy =>
+                policy.RequireRole(ClinicBookingSystem.Application.Constants.AppRoles.Admin, ClinicBookingSystem.Application.Constants.AppRoles.Receptionist, ClinicBookingSystem.Application.Constants.AppRoles.Doctor, ClinicBookingSystem.Application.Constants.AppRoles.SuperAdmin, "2", "3", "4", "6"));
+
+            opt.AddPolicy(ClinicBookingSystem.Application.Constants.AppPolicies.DoctorOnly, policy =>
+                policy.RequireRole(ClinicBookingSystem.Application.Constants.AppRoles.Doctor, ClinicBookingSystem.Application.Constants.AppRoles.Admin, ClinicBookingSystem.Application.Constants.AppRoles.SuperAdmin, "4", "2", "6"));
+
+            opt.AddPolicy(ClinicBookingSystem.Application.Constants.AppPolicies.UserOrAdmin, policy =>
+                policy.RequireRole(ClinicBookingSystem.Application.Constants.AppRoles.User, ClinicBookingSystem.Application.Constants.AppRoles.Admin, ClinicBookingSystem.Application.Constants.AppRoles.SuperAdmin, "1", "2", "6", "0"));
         });
 
         return services;
+    }
+
+    public static void ValidateSensitiveConfiguration(this IConfiguration config, IHostEnvironment env)
+    {
+        var jwtSecret = config["Jwt:Secret"];
+        var isProduction = env.IsProduction();
+
+        if (isProduction)
+        {
+            if (string.IsNullOrWhiteSpace(jwtSecret) || 
+                jwtSecret.Length < 32 || 
+                jwtSecret.Contains("YOUR_SUPER_SECRET_KEY", StringComparison.OrdinalIgnoreCase) ||
+                jwtSecret.Contains("DEVELOPMENT_", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "CRITICAL SECURITY ERROR: Production deployment requires a secure, non-placeholder 'Jwt:Secret' environment variable with at least 32 characters (256 bits).");
+            }
+
+            var connectionString = config.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "CRITICAL SECURITY ERROR: ConnectionStrings:DefaultConnection is missing in production.");
+            }
+        }
     }
 
     public static IServiceCollection AddRateLimiting(this IServiceCollection services)

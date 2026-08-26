@@ -24,7 +24,8 @@ public record PublicAppointmentDto(
     DateTime SlotDateTime,
     AppointmentStatus Status,
     DateTime CreatedAt,
-    bool IsPaid = false
+    bool IsPaid = false,
+    string? SecurityPin = null
 );
 
 public record PublicAppointmentSearchDto(

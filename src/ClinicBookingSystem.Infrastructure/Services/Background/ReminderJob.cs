@@ -1,4 +1,5 @@
 using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using Hangfire;
@@ -11,12 +12,18 @@ public class ReminderJob
 {
     private readonly ApplicationDbContext _context;
     private readonly IEmailService _emailService;
+    private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<ReminderJob> _logger;
 
-    public ReminderJob(ApplicationDbContext context, IEmailService emailService, ILogger<ReminderJob> logger)
+    public ReminderJob(
+        ApplicationDbContext context,
+        IEmailService emailService,
+        ITenantProvider tenantProvider,
+        ILogger<ReminderJob> logger)
     {
         _context = context;
         _emailService = emailService;
+        _tenantProvider = tenantProvider;
         _logger = logger;
     }
 
@@ -27,65 +34,80 @@ public class ReminderJob
         var in24h = now.AddHours(24);
         var in1h = now.AddHours(1);
 
-        // ── Appointment-based reminders (doctor appointments) ──
+        // Fetch upcoming appointments across tenants
         var upcomingAppointments = await _context.Appointments
             .IgnoreQueryFilters()
             .Include(a => a.User)
             .Include(a => a.Doctor)
             .Where(a => !a.IsDeleted
+                && a.TenantId.HasValue
                 && (a.Status == AppointmentStatus.Confirmed || a.Status == AppointmentStatus.Pending)
                 && a.SlotDateTime >= now && a.SlotDateTime <= in24h)
             .ToListAsync();
 
+        if (!upcomingAppointments.Any()) return;
+
         foreach (var appt in upcomingAppointments)
         {
-            var email = appt.User?.Email ?? appt.PatientEmail;
-            if (string.IsNullOrEmpty(email)) continue;
+            var tenantId = appt.TenantId;
+            if (!tenantId.HasValue || tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("Skipping appointment {AppointmentId} with missing TenantId.", appt.Id);
+                continue;
+            }
 
-            bool send24h = (appt.SlotDateTime <= in24h && appt.SlotDateTime > now.AddHours(23));
-            bool send1h = (appt.SlotDateTime <= in1h);
+            var email = appt.User?.Email ?? appt.PatientEmail;
+            if (string.IsNullOrWhiteSpace(email)) continue;
+
+            var send24h = (appt.SlotDateTime <= in24h && appt.SlotDateTime > now.AddHours(23));
+            var send1h = (appt.SlotDateTime <= in1h);
 
             if (!send24h && !send1h) continue;
 
             var typeKey = send1h ? "1h" : "24h";
             var referenceKey = $"appt-reminder-{typeKey}-{appt.Id}";
-            
-            var alreadySent = await _context.Notifications
-                .IgnoreQueryFilters()
-                .AnyAsync(n => !n.IsDeleted && n.Message.Contains(referenceKey));
 
-            if (alreadySent) continue;
-
-            try
+            // Explicitly establish tenant context for tenant-scoped operations
+            using (_tenantProvider.Change(tenantId))
             {
-                var title = $"Appointment with Dr. {appt.Doctor.Name}";
-                var timeLabel = send1h ? "in 1 hour" : "in 24 hours";
+                // Idempotency check scoped strictly to the appointment's tenant
+                var alreadySent = await _context.Notifications
+                    .IgnoreQueryFilters()
+                    .AnyAsync(n => !n.IsDeleted
+                        && n.TenantId == tenantId.Value
+                        && n.Message.Contains(referenceKey));
 
-                await _emailService.SendReminderAsync(email, $"{title} ({timeLabel})", appt.SlotDateTime);
+                if (alreadySent) continue;
 
-                // Record notification to prevent duplicate
-                var notification = new Domain.Entities.Notification
+                try
                 {
-                    UserId = appt.UserId ?? Guid.Empty, // Use Empty if guest, but we mostly track via Message content for reminders
-                    Message = $"{referenceKey}: {title} - Ref: {appt.BookingReference}",
-                    Type = NotificationType.Email
-                };
+                    var title = $"Appointment with Dr. {appt.Doctor?.Name ?? "Doctor"}";
+                    var timeLabel = send1h ? "in 1 hour" : "in 24 hours";
 
-                // For guest users, we still want to record the notification to prevent duplicates
-                // Note: The Domain Entity might require a valid UserId if not nullable.
-                // Let's check SupportEntities.cs again.
-                
-                _context.Notifications.Add(notification);
+                    await _emailService.SendReminderAsync(email, $"{title} ({timeLabel})", appt.SlotDateTime);
 
-                _logger.LogInformation("Appointment reminder ({Type}) sent to {Email} for appointment {AppointmentId}",
-                    typeKey, email, appt.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to send appointment reminder to {Email}", email);
+                    // Record notification with explicit TenantId to prevent duplicate side effects on retries
+                    var notification = new Notification
+                    {
+                        TenantId = tenantId.Value,
+                        UserId = appt.UserId,
+                        Message = $"{referenceKey}: {title} - Ref: {appt.BookingReference}",
+                        Type = NotificationType.Email,
+                        SentAt = DateTime.UtcNow,
+                        IsRead = true
+                    };
+
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Appointment reminder ({Type}) sent for appointment {AppointmentId} in tenant {TenantId}",
+                        typeKey, appt.Id, tenantId.Value);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send appointment reminder for appointment {AppointmentId}", appt.Id);
+                }
             }
         }
-
-        await _context.SaveChangesAsync();
     }
 }

@@ -13,6 +13,7 @@ public record PublicRescheduleAppointmentCommand(
     string BookingReference,
     string Phone,
     DateTime NewSlotDateTime,
+    string? SecurityPin = null,
     Guid? TenantId = null
 ) : IRequest<PublicAppointmentDto>;
 
@@ -31,12 +32,18 @@ public class PublicRescheduleAppointmentCommandHandler : IRequestHandler<PublicR
 
     public async Task<PublicAppointmentDto> Handle(PublicRescheduleAppointmentCommand request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.BookingReference) || string.IsNullOrWhiteSpace(request.Phone))
+            throw new DomainException("Booking reference and phone number are required.");
+
         var tenantId = request.TenantId ?? _tenantProvider.TenantId;
         if (!tenantId.HasValue)
             throw new DomainException("Tenant ID is required to reschedule an appointment.");
 
+        var normalizedPhone = request.Phone.Trim();
+        var normalizedRef = request.BookingReference.Trim();
+
         var appointments = await _uow.Appointments.GetAllAsync(
-            a => a.TenantId == tenantId.Value && a.BookingReference == request.BookingReference,
+            a => a.TenantId == tenantId.Value && a.BookingReference == normalizedRef,
             cancellationToken,
             a => a.Doctor);
 
@@ -45,8 +52,18 @@ public class PublicRescheduleAppointmentCommandHandler : IRequestHandler<PublicR
 
         // Verify phone
         var phone = appointment.User?.PhoneNumber ?? appointment.PatientPhone;
-        if (!string.Equals(phone, request.Phone, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(phone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedActionException("Phone number does not match the booking.");
+
+        // Verify SecurityPin if set on appointment
+        if (!string.IsNullOrWhiteSpace(appointment.SecurityPin))
+        {
+            if (string.IsNullOrWhiteSpace(request.SecurityPin) ||
+                !string.Equals(appointment.SecurityPin.Trim(), request.SecurityPin.Trim(), StringComparison.Ordinal))
+            {
+                throw new UnauthorizedActionException("Invalid security verification PIN.");
+            }
+        }
 
         if (appointment.Status == AppointmentStatus.Cancelled)
             throw new DomainException("Cannot reschedule a cancelled appointment.");

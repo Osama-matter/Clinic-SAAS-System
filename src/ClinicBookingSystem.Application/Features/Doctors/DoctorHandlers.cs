@@ -1,5 +1,6 @@
 using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Domain.Entities;
+using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
 using MediatR;
@@ -33,8 +34,13 @@ public class DoctorHandlers :
 
     public async Task<DoctorDto> Handle(CreateDoctorCommand request, CancellationToken cancellationToken)
     {
-        var effectiveTenantId = request.TenantId ?? _currentUser.TenantId
-            ?? throw new DomainException("Tenant ID is required.");
+        var isSuperAdmin = _currentUser.Role == "SuperAdmin" || _currentUser.Role == "6";
+        var effectiveTenantId = isSuperAdmin 
+            ? (request.TenantId ?? _currentUser.TenantId) 
+            : _currentUser.TenantId;
+
+        if (!effectiveTenantId.HasValue)
+            throw new DomainException("Tenant ID is required.");
 
         // Verify limit
         var existingDoctorsCount = await _uow.Doctors.CountAsync(d => d.TenantId == effectiveTenantId, cancellationToken);
@@ -108,19 +114,37 @@ public class DoctorHandlers :
 
     public async Task<Unit> Handle(DeleteDoctorCommand request, CancellationToken cancellationToken)
     {
-        var doctor = await _uow.Doctors.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException(nameof(Doctor), request.Id);
+        var isSuperAdmin = _currentUser.Role == "6" 
+            || _currentUser.Role == "SuperAdmin" 
+            || _currentUser.Role == ((int)UserRole.SuperAdmin).ToString();
 
-        var isSuperAdmin = _currentUser.Role == "6" || _currentUser.Role == "SuperAdmin";
-        var isClinicAdmin = (_currentUser.Role == "2" || _currentUser.Role == "Admin") && _currentUser.TenantId == doctor.TenantId;
+        if (!isSuperAdmin)
+        {
+            if (!_currentUser.TenantId.HasValue)
+                throw new UnauthorizedActionException("Tenant context is required to delete a doctor.");
 
-        if (!isSuperAdmin && !isClinicAdmin)
-            throw new UnauthorizedActionException("You don't have permission to delete this doctor.");
+            var isClinicAdmin = _currentUser.Role == "2" 
+                || _currentUser.Role == "Admin" 
+                || _currentUser.Role == ((int)UserRole.Admin).ToString();
 
-        // Delete associated user if exists
+            if (!isClinicAdmin)
+                throw new UnauthorizedActionException("You don't have permission to delete this doctor.");
+        }
+
+        var doctor = await _uow.Doctors.GetByIdAsync(request.Id, cancellationToken);
+        if (doctor == null || (!isSuperAdmin && doctor.TenantId != _currentUser.TenantId!.Value))
+        {
+            throw new NotFoundException(nameof(Doctor), request.Id);
+        }
+
+        // Delete associated user if exists, strictly enforcing tenant boundary
         var user = await _uow.Users.GetByIdAsync(doctor.UserId, cancellationToken);
         if (user != null)
         {
+            if (!isSuperAdmin && user.TenantId != _currentUser.TenantId!.Value)
+            {
+                throw new UnauthorizedActionException("Cannot delete user belonging to another tenant.");
+            }
             await _uow.Users.DeleteAsync(user, cancellationToken);
         }
 

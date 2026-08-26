@@ -1,4 +1,5 @@
 using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using Hangfire;
@@ -11,12 +12,18 @@ public class FeedbackJob
 {
     private readonly ApplicationDbContext _context;
     private readonly IEmailService _emailService;
+    private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<FeedbackJob> _logger;
 
-    public FeedbackJob(ApplicationDbContext context, IEmailService emailService, ILogger<FeedbackJob> logger)
+    public FeedbackJob(
+        ApplicationDbContext context,
+        IEmailService emailService,
+        ITenantProvider tenantProvider,
+        ILogger<FeedbackJob> logger)
     {
         _context = context;
         _emailService = emailService;
+        _tenantProvider = tenantProvider;
         _logger = logger;
     }
 
@@ -26,61 +33,81 @@ public class FeedbackJob
         var now = DateTime.UtcNow;
         var past24h = now.AddHours(-24);
 
-        // Find appointments marked as Completed within the last 24 hours that haven't received a feedback email yet
+        // Find completed appointments across tenants
         var completedAppointments = await _context.Appointments
             .IgnoreQueryFilters()
             .Include(a => a.User)
             .Include(a => a.Doctor)
             .Where(a => !a.IsDeleted
+                && a.TenantId.HasValue
                 && a.Status == AppointmentStatus.Completed
                 && a.UpdatedAt >= past24h)
             .ToListAsync();
 
+        if (!completedAppointments.Any()) return;
+
         foreach (var appt in completedAppointments)
         {
-            var email = appt.User?.Email ?? appt.PatientEmail;
-            if (string.IsNullOrEmpty(email)) continue;
-
-            // Check if we already sent a feedback request for this appointment
-            var alreadySent = await _context.Notifications
-                .IgnoreQueryFilters()
-                .AnyAsync(n => !n.IsDeleted
-                    && n.UserId == (appt.UserId ?? Guid.Empty)
-                    && n.Message.Contains($"Feedback-{appt.Id}"));
-
-            if (alreadySent) continue;
-
-            try
+            var tenantId = appt.TenantId;
+            if (!tenantId.HasValue || tenantId == Guid.Empty)
             {
-                var subject = $"How was your visit with Dr. {appt.Doctor.Name}?";
-                var body = $@"
-                    <h3>We'd love to hear your feedback!</h3>
-                    <p>Dear {appt.PatientName ?? appt.User?.Name ?? "Patient"},</p>
-                    <p>Thank you for visiting <strong>Dr. {appt.Doctor.Name}</strong> on {appt.SlotDateTime:MMM dd, yyyy}.</p>
-                    <p>Please take a moment to <a href=""https://clinicflow.test/feedback/{appt.Id}"">rate your experience</a>.</p>
-                    <br/>
-                    <p>Best regards,<br/>The ClinicFlow Team</p>
-                ";
+                _logger.LogWarning("Skipping completed appointment {AppointmentId} with missing TenantId.", appt.Id);
+                continue;
+            }
 
-                await _emailService.SendAsync(email, subject, body);
+            var email = appt.User?.Email ?? appt.PatientEmail;
+            if (string.IsNullOrWhiteSpace(email)) continue;
 
-                if (appt.UserId.HasValue)
+            var referenceKey = $"Feedback-{appt.Id}";
+
+            // Explicitly establish tenant context
+            using (_tenantProvider.Change(tenantId))
+            {
+                // Scoped idempotency check
+                var alreadySent = await _context.Notifications
+                    .IgnoreQueryFilters()
+                    .AnyAsync(n => !n.IsDeleted
+                        && n.TenantId == tenantId.Value
+                        && n.Message.Contains(referenceKey));
+
+                if (alreadySent) continue;
+
+                try
                 {
-                    _context.Notifications.Add(new Domain.Entities.Notification
+                    var doctorName = appt.Doctor?.Name ?? "your doctor";
+                    var subject = $"How was your visit with Dr. {doctorName}?";
+                    var body = $@"
+                        <h3>We'd love to hear your feedback!</h3>
+                        <p>Dear {appt.PatientName ?? appt.User?.Name ?? "Patient"},</p>
+                        <p>Thank you for visiting <strong>Dr. {doctorName}</strong> on {appt.SlotDateTime:MMM dd, yyyy}.</p>
+                        <p>Please take a moment to rate your experience.</p>
+                        <br/>
+                        <p>Best regards,<br/>Clinic Team</p>
+                    ";
+
+                    await _emailService.SendAsync(email, subject, body);
+
+                    var notification = new Notification
                     {
-                        UserId = appt.UserId.Value,
-                        Message = $"Feedback-{appt.Id} Request Sent",
-                        CreatedAt = DateTime.UtcNow,
+                        TenantId = tenantId.Value,
+                        UserId = appt.UserId,
+                        Message = $"{referenceKey} Request Sent",
+                        Type = NotificationType.Email,
+                        SentAt = DateTime.UtcNow,
                         IsRead = true
-                    });
+                    };
+
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Feedback request sent for appointment {AppointmentId} in tenant {TenantId}",
+                        appt.Id, tenantId.Value);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send feedback request email for Appointment {Id}", appt.Id);
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to send feedback request email to {Email} for Appointment {Id}", email, appt.Id);
-            }
         }
-
-        await _context.SaveChangesAsync();
     }
 }

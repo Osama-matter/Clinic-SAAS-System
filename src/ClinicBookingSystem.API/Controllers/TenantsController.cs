@@ -1,4 +1,5 @@
 using ClinicBookingSystem.API.Filters;
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.Tenants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -34,14 +35,16 @@ public class TenantsController : ControllerBase
         return Ok(await _mediator.Send(new GetTenantsSummaryQuery()));
     }
 
-    /// <summary>Create a new clinic (Admin only)</summary>
+    /// <summary>Create a new clinic (SuperAdmin only)</summary>
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpPost]
     public async Task<ActionResult<TenantDto>> Create(CreateTenantCommand command)
     {
         return Ok(await _mediator.Send(command));
     }
 
-    /// <summary>Update a clinic (Admin only)</summary>
+    /// <summary>Update a clinic (SuperAdmin only)</summary>
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpPut("{id}")]
     public async Task<ActionResult<TenantDto>> Update(Guid id, UpdateTenantCommand command)
     {
@@ -49,7 +52,8 @@ public class TenantsController : ControllerBase
         return Ok(await _mediator.Send(command));
     }
 
-    /// <summary>Delete a clinic (Admin only)</summary>
+    /// <summary>Delete a clinic (SuperAdmin only)</summary>
+    [Authorize(Policy = AppPolicies.SuperAdminOnly)]
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(Guid id)
     {
@@ -74,7 +78,7 @@ public class TenantsController : ControllerBase
     }
 
     /// <summary>Update the current clinic public page</summary>
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPolicies.AdminOnly)]
     [HttpPut("my-page")]
     public async Task<ActionResult<TenantDto>> UpdateMyPage([FromBody] UpdateClinicPublicPageCommand command)
     {

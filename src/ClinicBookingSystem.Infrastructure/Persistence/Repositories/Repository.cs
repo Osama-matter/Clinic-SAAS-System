@@ -1,4 +1,5 @@
 using ClinicBookingSystem.Domain.Entities;
+using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Numerics;
@@ -55,6 +56,10 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
     {
         var query = _dbSet.AsNoTracking();
+        if (typeof(T) == typeof(User) && _context.CurrentTenantId == null && _context.CurrentUserRole != UserRole.SuperAdmin)
+        {
+            query = query.IgnoreQueryFilters();
+        }
         if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
         return await query.FirstOrDefaultAsync(predicate, cancellationToken);
     }
@@ -67,39 +72,70 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         CancellationToken cancellationToken = default,
         params System.Linq.Expressions.Expression<Func<T, object>>[] includes)
     {
-        var query = _dbSet.AsNoTracking();
-        if (includes != null) query = includes.Aggregate(query, (current, include) => current.Include(include));
-        if (predicate != null) query = query.Where(predicate);
+        var baseQuery = _dbSet.AsNoTracking();
+        if (predicate != null) baseQuery = baseQuery.Where(predicate);
 
-        var total = await query.CountAsync(cancellationToken);
-        var items = await query
+        var total = await baseQuery.CountAsync(cancellationToken);
+
+        var itemsQuery = baseQuery;
+        if (includes != null) itemsQuery = includes.Aggregate(itemsQuery, (current, include) => current.Include(include));
+
+        var items = await itemsQuery
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         return (items, total);
-    }// this use  if  you  have  a large number of entities and you want to  get  them in pages instead of getting all the entities at once and also to filter the entities based on the predicate and also to include the related entities based on the includes parameter and also to support cancellation token for async operations
+    }
 
     public async Task AddAsync(T entity, CancellationToken cancellationToken = default)
         => await _dbSet.AddAsync(entity, cancellationToken);
 
     public Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
-        _dbSet.Update(entity);
+        var entry = _context.Entry(entity);
+        if (entry.State == EntityState.Detached)
+        {
+            var existing = _dbSet.Local.FirstOrDefault(e => e.Id == entity.Id);
+            if (existing != null)
+            {
+                _context.Entry(existing).CurrentValues.SetValues(entity);
+                return Task.CompletedTask;
+            }
+            _dbSet.Attach(entity);
+            entry.State = EntityState.Modified;
+        }
+        else if (entry.State == EntityState.Unchanged)
+        {
+            entry.State = EntityState.Modified;
+        }
         return Task.CompletedTask;
     }
 
     public Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
     {
+        var entry = _context.Entry(entity);
+        if (entry.State == EntityState.Detached)
+        {
+            var existing = _dbSet.Local.FirstOrDefault(e => e.Id == entity.Id);
+            if (existing != null)
+            {
+                existing.IsDeleted = true;
+                _context.Entry(existing).State = EntityState.Modified;
+                return Task.CompletedTask;
+            }
+            _dbSet.Attach(entity);
+        }
         entity.IsDeleted = true;
-        _dbSet.Update(entity);
+        entry.State = EntityState.Modified;
         return Task.CompletedTask;
     }
 }
 
-public class UnitOfWork : IUnitOfWork   // whats a  uinit of work  pattern  is  to  group multiple repository operations into a single transaction and also to manage the lifecycle of the repositories and to commit all the changes made to the repositories in a single transaction and also to provide a single point of access to multiple repositories and to manage the lifecycle of the repositories and to commit all the changes made to the repositories in a single transaction
+public class UnitOfWork : IUnitOfWork
 {
     private readonly ApplicationDbContext _context;
+    private Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? _currentTransaction;
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -122,6 +158,7 @@ public class UnitOfWork : IUnitOfWork   // whats a  uinit of work  pattern  is  
         LabOrders = new Repository<LabOrder>(context);
         ImagingOrders = new Repository<ImagingOrder>(context);
         Results = new Repository<Result>(context);
+        Drugs = new Repository<Drug>(context);
         Planes = new Repository<Plan>(context);
         ClinicSubscriptions = new Repository<ClinicSubscription>(context);
         Features = new Repository<Feature>(context);
@@ -148,8 +185,7 @@ public class UnitOfWork : IUnitOfWork   // whats a  uinit of work  pattern  is  
     public IRepository<LabOrder> LabOrders { get; }
     public IRepository<ImagingOrder> ImagingOrders { get; }
     public IRepository<Result> Results { get; }
-
-   
+    public IRepository<Drug> Drugs { get; }
 
     public IRepository<ClinicSubscription> ClinicSubscriptions { get; }
 
@@ -162,4 +198,32 @@ public class UnitOfWork : IUnitOfWork   // whats a  uinit of work  pattern  is  
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => _context.SaveChangesAsync(cancellationToken);
+
+    public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (_currentTransaction == null && _context.Database.IsRelational())
+        {
+            _currentTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        }
+    }
+
+    public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (_currentTransaction != null)
+        {
+            await _currentTransaction.CommitAsync(cancellationToken);
+            await _currentTransaction.DisposeAsync();
+            _currentTransaction = null;
+        }
+    }
+
+    public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (_currentTransaction != null)
+        {
+            await _currentTransaction.RollbackAsync(cancellationToken);
+            await _currentTransaction.DisposeAsync();
+            _currentTransaction = null;
+        }
+    }
 }

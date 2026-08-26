@@ -1,4 +1,5 @@
 using ClinicBookingSystem.API.Filters;
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.Patients;
 using ClinicBookingSystem.Application.Interfaces;
 using MediatR;
@@ -9,7 +10,7 @@ namespace ClinicBookingSystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,Receptionist,Doctor")]
+[Authorize(Policy = AppPolicies.StaffOnly)]
 [RequireActiveSubscription]
 public class PatientsController : ControllerBase
 {

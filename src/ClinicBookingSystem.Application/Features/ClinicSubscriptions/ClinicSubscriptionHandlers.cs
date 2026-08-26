@@ -102,8 +102,8 @@ public class ClinicSubscriptionHandlers :
         subscription.StartDate,
         subscription.ExpiresAt,
         subscription.PaidAmount,
-        subscription.PaymentRef,
+        subscription.PaymentRef ?? string.Empty,
         subscription.CreatedAt,
-        subscription.UpdatedAt
+        subscription.UpdatedAt ?? subscription.CreatedAt
     );
 }

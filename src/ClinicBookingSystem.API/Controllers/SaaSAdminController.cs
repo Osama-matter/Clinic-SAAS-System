@@ -1,3 +1,4 @@
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.SaaSAdmin;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +10,7 @@ namespace ClinicBookingSystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "SuperAdmin")]
+[Authorize(Policy = AppPolicies.SuperAdminOnly)]
 public class SaaSAdminController : ControllerBase
 {
     private readonly IMediator _mediator;

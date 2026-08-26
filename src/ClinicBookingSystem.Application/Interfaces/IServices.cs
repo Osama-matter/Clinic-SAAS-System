@@ -41,7 +41,10 @@ public interface IReportExportService
 public interface IFileService
 {
     Task<string> SaveFileAsync(Stream fileStream, string fileName, string subDirectory, CancellationToken cancellationToken = default);
+    Task<string> SaveProtectedFileAsync(Stream fileStream, string fileName, Guid tenantId, string category, CancellationToken cancellationToken = default);
+    Task<(Stream Stream, string ContentType, string FileName)> GetProtectedFileAsync(Guid tenantId, string category, string fileName, CancellationToken cancellationToken = default);
     void DeleteFile(string filePath);
+    void DeleteProtectedFile(Guid tenantId, string category, string fileName);
 }
 
 public interface IPlanService

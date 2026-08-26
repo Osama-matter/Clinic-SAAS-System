@@ -391,7 +391,10 @@ public class VisitHandlers :
     }
     public async Task<string> Handle(UploadVisitImageCommand request, CancellationToken cancellationToken)
     {
-        return await _fileService.SaveFileAsync(request.FileStream, request.FileName, "visits", cancellationToken);
+        var tenantId = _currentUser.TenantId
+            ?? throw new DomainException("Tenant ID is required.");
+
+        return await _fileService.SaveProtectedFileAsync(request.FileStream, request.FileName, tenantId, "visits", cancellationToken);
     }
     public async Task<VisitDetailDto> Handle(GetVisitByIdQuery request, CancellationToken cancellationToken)
     {

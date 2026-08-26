@@ -1,4 +1,6 @@
 using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Domain.Enums;
+using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -13,10 +15,25 @@ public class ReportExportService : IReportExportService
 
     public async Task<byte[]> ExportAppointmentsCsvAsync(DateTime? from, DateTime? to, Guid? doctorId = null, CancellationToken cancellationToken = default)
     {
+        var currentTenantId = _context.CurrentTenantId;
+        var isSuperAdmin = _context.CurrentUserRole == UserRole.SuperAdmin;
+
+        if (!isSuperAdmin && !currentTenantId.HasValue)
+        {
+            throw new UnauthorizedActionException("Tenant context is required to export reports.");
+        }
+
+        var tenantId = currentTenantId.GetValueOrDefault();
+
         var query = _context.Appointments
             .Include(a => a.Doctor)
             .Include(a => a.User)
             .AsQueryable();
+
+        if (!isSuperAdmin)
+        {
+            query = query.Where(a => a.TenantId == tenantId);
+        }
 
         if (from.HasValue) query = query.Where(a => a.SlotDateTime >= from.Value);
         if (to.HasValue) query = query.Where(a => a.SlotDateTime <= to.Value);
@@ -53,18 +70,42 @@ public class ReportExportService : IReportExportService
 
     public async Task<byte[]> ExportAppointmentsPdfAsync(DateTime? from, DateTime? to, Guid? doctorId = null, CancellationToken cancellationToken = default)
     {
+        var currentTenantId = _context.CurrentTenantId;
+        var isSuperAdmin = _context.CurrentUserRole == UserRole.SuperAdmin;
+
+        if (!isSuperAdmin && !currentTenantId.HasValue)
+        {
+            throw new UnauthorizedActionException("Tenant context is required to export reports.");
+        }
+
+        var tenantId = currentTenantId.GetValueOrDefault();
+
         // Fetch all necessary data
         var appQuery = _context.Appointments
             .Include(a => a.Doctor)
             .Include(a => a.User)
             .AsQueryable();
 
+        if (!isSuperAdmin)
+        {
+            appQuery = appQuery.Where(a => a.TenantId == tenantId);
+        }
+
         if (from.HasValue) appQuery = appQuery.Where(a => a.SlotDateTime >= from.Value);
         if (to.HasValue) appQuery = appQuery.Where(a => a.SlotDateTime <= to.Value);
         if (doctorId.HasValue) appQuery = appQuery.Where(a => a.DoctorId == doctorId.Value);
 
         var appointments = await appQuery.OrderBy(a => a.SlotDateTime).ToListAsync(cancellationToken);
-        var patients = await _context.Users.Where(u => u.Role == ClinicBookingSystem.Domain.Enums.UserRole.Patient).ToListAsync(cancellationToken);
+
+        var patientsQuery = _context.Users
+            .Where(u => !u.IsDeleted && (u.Role == UserRole.Patient || u.Role == UserRole.User));
+
+        if (!isSuperAdmin)
+        {
+            patientsQuery = patientsQuery.Where(u => u.TenantId == tenantId);
+        }
+
+        var patients = await patientsQuery.ToListAsync(cancellationToken);
 
         // Stats
         var total = appointments.Count;

@@ -49,12 +49,33 @@ public class AuthController : BaseController
     /// <summary>Refresh access token</summary>
     [HttpPost("refresh-token")]
     [ProducesResponseType(typeof(AuthTokenDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenCommand command, CancellationToken ct)
         => Ok(await Mediator.Send(command, ct));
 
+    /// <summary>Logout current user session</summary>
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Logout([FromBody] LogoutCommand? command, CancellationToken ct)
+    {
+        await Mediator.Send(command ?? new LogoutCommand(), ct);
+        return Ok(new { message = "Logged out successfully." });
+    }
+
+    /// <summary>Revoke a specific refresh token</summary>
+    [HttpPost("revoke-token")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenCommand command, CancellationToken ct)
+    {
+        var result = await Mediator.Send(command, ct);
+        return Ok(new { revoked = result });
+    }
+
     /// <summary>Create a new admin user (SuperAdmin only)</summary>
     [HttpPost("create-admin")]
-    [Authorize(Policy = "SuperAdminOnly")]
+    [Authorize(Policy = ClinicBookingSystem.Application.Constants.AppPolicies.SuperAdminOnly)]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -64,8 +85,8 @@ public class AuthController : BaseController
         return CreatedAtAction(nameof(Register), new { id = result.Id }, result);
     }
     
-    /// <summary>Get list of all patients (Admin/Receptionist only)</summary>
-    [Authorize]
+    /// <summary>Get list of all patients (Staff only)</summary>
+    [Authorize(Policy = ClinicBookingSystem.Application.Constants.AppPolicies.StaffOnly)]
     [HttpGet("patients")]
     [ProducesResponseType(typeof(IEnumerable<UserDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPatients(CancellationToken ct)

@@ -1,4 +1,5 @@
 using ClinicBookingSystem.API.Filters;
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.Reports;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ClinicBookingSystem.API.Controllers;
 
 /// <summary>Reports and analytics endpoints</summary>
-[Authorize(Roles = "Admin,Receptionist,Doctor")]
+[Authorize(Policy = AppPolicies.StaffOnly)]
 [ApiController]
 [Route("api/[controller]")]
 [RequireActiveSubscription]

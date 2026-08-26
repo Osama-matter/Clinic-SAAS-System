@@ -1,6 +1,7 @@
 using ClinicBookingSystem.Application.Interfaces;
 using ClinicBookingSystem.Domain.Entities;
 using ClinicBookingSystem.Domain.Enums;
+using ClinicBookingSystem.Infrastructure.Settings;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using BC = BCrypt.Net.BCrypt;
@@ -9,8 +10,10 @@ namespace ClinicBookingSystem.Infrastructure.Persistence;
 
 public static class DbInitializer
 {
-    public static async Task SeedAsync(ApplicationDbContext context, string? webRootPath = null)
+    public static async Task SeedAsync(ApplicationDbContext context, string? webRootPath = null, SeedDataOptions? seedOptions = null)
     {
+        seedOptions ??= new SeedDataOptions();
+
         // Seed Tenant
         var defaultTenant = await context.Tenants.FirstOrDefaultAsync(t => t.Name == "Default Clinic");
         if (defaultTenant == null)
@@ -25,14 +28,16 @@ public static class DbInitializer
             await context.SaveChangesAsync();
         }
 
-        var superAdmin = await context.Users.FirstOrDefaultAsync(u => u.Email == "admin@clinic.com");
+        var superAdmin = await context.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email == seedOptions.SuperAdminEmail.ToLowerInvariant());
         if (superAdmin == null)
         {
             superAdmin = new User
             {
                 Name = "System Admin",
-                Email = "admin@clinic.com",
-                PasswordHash = BC.HashPassword("Admin123!"),
+                Email = seedOptions.SuperAdminEmail.ToLowerInvariant(),
+                PasswordHash = BC.HashPassword(seedOptions.SuperAdminPassword),
                 Role = UserRole.SuperAdmin,
                 PhoneNumber = "1234567890",
                 TenantId = null
@@ -43,19 +48,16 @@ public static class DbInitializer
         {
             superAdmin.Role = UserRole.SuperAdmin;
             superAdmin.TenantId = null;
-            superAdmin.PasswordHash = BC.HashPassword("Admin123!");
-            superAdmin.Name = "System Admin";
-            superAdmin.PhoneNumber = "1234567890";
             context.Users.Update(superAdmin);
         }
 
-        if (!await context.Users.AnyAsync(u => u.Email == "staff@clinic.com"))
+        if (!await context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == seedOptions.StaffEmail.ToLowerInvariant()))
         {
             var receptionist = new User
             {
                 Name = "Main Receptionist",
-                Email = "staff@clinic.com",
-                PasswordHash = BC.HashPassword("Staff123!"),
+                Email = seedOptions.StaffEmail.ToLowerInvariant(),
+                PasswordHash = BC.HashPassword(seedOptions.StaffPassword),
                 Role = UserRole.Receptionist,
                 TenantId = defaultTenant.Id
             };

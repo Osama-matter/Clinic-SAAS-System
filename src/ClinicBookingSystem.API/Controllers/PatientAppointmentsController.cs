@@ -44,7 +44,8 @@ public class AppointmentsController : BaseController
     public async Task<IActionResult> GetMine([FromQuery] AppointmentStatus? status, CancellationToken ct)
         => Ok(await Mediator.Send(new GetMyAppointmentsQuery(status), ct));
 
-    /// <summary>Update Appointment status</summary>
+    /// <summary>Update Appointment status (Staff only)</summary>
+    [Authorize(Policy = ClinicBookingSystem.Application.Constants.AppPolicies.StaffOnly)]
     [HttpPut("{id:guid}/status")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateAppointmentStatusCommand command, CancellationToken ct)
@@ -90,15 +91,13 @@ public class AppointmentsController : BaseController
         return Ok(await Mediator.Send(query with { TenantId = effectiveTenantId }, ct));
     }
 
-    /// <summary>Search public appointments by patient name or phone</summary>
-    [AllowAnonymous]
-    [EnableRateLimiting("PublicBookingPolicy")]
+    /// <summary>Search appointments by patient name or phone (Staff only)</summary>
+    [Authorize(Policy = ClinicBookingSystem.Application.Constants.AppPolicies.StaffOnly)]
     [HttpGet("public/search")]
     [ProducesResponseType(typeof(IEnumerable<PublicAppointmentSearchDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> PublicSearch([FromQuery] string? name, [FromQuery] string? phone, [FromQuery] Guid? tenantId, CancellationToken ct)
+    public async Task<IActionResult> PublicSearch([FromQuery] string? name, [FromQuery] string? phone, CancellationToken ct)
     {
-        var effectiveTenantId = tenantId ?? _tenantProvider.TenantId;
-        return Ok(await Mediator.Send(new SearchPublicAppointmentsQuery(name, phone, effectiveTenantId), ct));
+        return Ok(await Mediator.Send(new SearchPublicAppointmentsQuery(name, phone), ct));
     }
 
     /// <summary>Reschedule appointment by booking reference and phone</summary>
@@ -131,14 +130,14 @@ public class AppointmentsController : BaseController
     // ── Doctor endpoints ──────────────────────────────────
 
     /// <summary>Doctor views their own appointment schedule</summary>
-    [Authorize(Roles = "Admin,Receptionist,Doctor")]
+    [Authorize(Policy = ClinicBookingSystem.Application.Constants.AppPolicies.StaffOnly)]
     [HttpGet("my-schedule")]
     [ProducesResponseType(typeof(IEnumerable<AppointmentDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyDoctorSchedule([FromQuery] Guid? doctorId, [FromQuery] DateTime? date, [FromQuery] AppointmentStatus? status, CancellationToken ct)
         => Ok(await Mediator.Send(new GetMyDoctorScheduleQuery(doctorId, date, status), ct));
 
     /// <summary>Doctor adds notes to an appointment</summary>
-    [Authorize(Policy = "DoctorOnly")]
+    [Authorize(Policy = ClinicBookingSystem.Application.Constants.AppPolicies.DoctorOnly)]
     [HttpPatch("{id:guid}/notes")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> AddNotes(Guid id, [FromBody] NotesRequest request, CancellationToken ct)

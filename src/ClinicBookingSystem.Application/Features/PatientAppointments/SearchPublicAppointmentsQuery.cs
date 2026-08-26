@@ -1,4 +1,5 @@
 using ClinicBookingSystem.Application.Interfaces;
+using ClinicBookingSystem.Domain.Enums;
 using ClinicBookingSystem.Domain.Exceptions;
 using ClinicBookingSystem.Domain.Interfaces;
 using MediatR;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ClinicBookingSystem.Application.Features.Appointments;
 
-public record SearchPublicAppointmentsQuery(string? Name, string? Phone, Guid? TenantId = null) : IRequest<IEnumerable<PublicAppointmentSearchDto>>;
+public record SearchPublicAppointmentsQuery(string? Name, string? Phone) : IRequest<IEnumerable<PublicAppointmentSearchDto>>;
 
 public class SearchPublicAppointmentsQueryHandler : IRequestHandler<SearchPublicAppointmentsQuery, IEnumerable<PublicAppointmentSearchDto>>
 {
@@ -27,17 +28,29 @@ public class SearchPublicAppointmentsQueryHandler : IRequestHandler<SearchPublic
         if (!hasName && !hasPhone)
             throw new DomainException("Please provide a patient name or phone number.");
 
-        var tenantId = request.TenantId ?? _tenantProvider.TenantId;
-        if (!tenantId.HasValue)
-            throw new DomainException("Tenant ID is required to search public appointments.");
+        var isSuperAdmin = _tenantProvider.Role == UserRole.SuperAdmin || _tenantProvider.IsSuperAdmin;
+        var tenantId = _tenantProvider.TenantId;
 
+        if (!isSuperAdmin && !tenantId.HasValue)
+            throw new UnauthorizedActionException("Tenant context is required to search appointments.");
+
+        var targetTenantId = tenantId.GetValueOrDefault();
         var normalizedName = request.Name?.Trim().ToLowerInvariant();
         var normalizedPhone = request.Phone?.Trim();
 
-        return await _uow.Appointments
-            .AsQueryable()
-            .IgnoreQueryFilters()
-            .Where(a => !a.IsDeleted && a.TenantId == tenantId.Value &&
+        var query = _uow.Appointments.AsQueryable();
+
+        if (!isSuperAdmin)
+        {
+            query = query.Where(a => a.TenantId == targetTenantId);
+        }
+        else if (tenantId.HasValue)
+        {
+            query = query.Where(a => a.TenantId == targetTenantId);
+        }
+
+        return await query
+            .Where(a => !a.IsDeleted &&
                 (!hasPhone || a.PatientPhone == normalizedPhone || (a.User != null && a.User.PhoneNumber == normalizedPhone)) &&
                 (!hasName ||
                     (a.PatientName != null && a.PatientName.ToLower().Contains(normalizedName!)) ||
@@ -51,8 +64,8 @@ public class SearchPublicAppointmentsQueryHandler : IRequestHandler<SearchPublic
                 a.SlotDateTime,
                 a.Status,
                 a.CreatedAt,
-                a.PatientName ?? a.User!.Name ?? "Patient",
-                a.PatientPhone ?? a.User!.PhoneNumber ?? "",
+                a.PatientName ?? (a.User != null ? a.User.Name : "Patient"),
+                a.PatientPhone ?? (a.User != null ? a.User.PhoneNumber : "") ?? "",
                 a.IsPaid
             ))
             .ToListAsync(cancellationToken);

@@ -1,4 +1,5 @@
 using ClinicBookingSystem.API.Filters;
+using ClinicBookingSystem.Application.Constants;
 using ClinicBookingSystem.Application.Features.Doctors;
 using ClinicBookingSystem.Application.Interfaces;
 using MediatR;
