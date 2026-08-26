@@ -39,13 +39,13 @@ Clinic-SAAS-System/
 │   └── ClinicBookingSystem.Shared/           # Shared models and cross-cutting constants
 │
 ├── Front_End/
-│   └── clinicflow/                           # React 18 frontend + Material UI + Framer Motion + Capacitor (Android)
+│   └── clinicflow/                           # Frontend: React 18 + Material UI + Framer Motion + Capacitor (Android)
 │
 ├── tests/
-│   └── ClinicBookingSystem.Tests/            # Comprehensive xUnit test suite (150 security & integration tests)
+│   └── ClinicBookingSystem.Tests/            # Tests: Comprehensive xUnit test suite (150 security & integration tests)
 │
-├── docs/                                     # System SRS, documentation, and workflow tickets
-└── README.md
+├── ClinicBookingSystem.sln                   # .NET Solution File
+└── README.md                                 # Project Documentation
 ```
 
 ---
